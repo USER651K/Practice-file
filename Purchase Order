@@ -328,7 +328,7 @@ FORM display_po_with_items.
       i_callback_user_command = 'USER_COMMAND_HIER'
       is_layout               = ls_layout
       it_fieldcat             = lt_fieldcat_header
-      it_fieldcat_item        = lt_fieldcat_item
+      it_fieldcat_it          = lt_fieldcat_item
       i_tabname_header        = 'GT_PO_HEADER'
       i_tabname_item          = 'GT_PO_ITEM'
       is_keyinfo              = ls_keyinfo
