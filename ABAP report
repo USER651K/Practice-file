@@ -175,18 +175,17 @@ FORM display_material_list.
   " Display ALV
   CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
     EXPORTING
-      i_callback_program       = sy-repid
-      i_callback_pf_status_set = 'SET_PF_STATUS'
-      i_callback_user_command  = 'USER_COMMAND'
-      is_layout                = ls_layout
-      it_fieldcat              = lt_fieldcat
-      i_grid_title             = 'Material Master List'
-      i_save                   = 'A'
+      i_callback_program      = sy-repid
+      i_callback_user_command = 'USER_COMMAND'
+      is_layout               = ls_layout
+      it_fieldcat             = lt_fieldcat
+      i_grid_title            = 'Material Master List'
+      i_save                  = 'A'
     TABLES
-      t_outtab                 = gt_material
+      t_outtab                = gt_material
     EXCEPTIONS
-      program_error            = 1
-      OTHERS                   = 2.
+      program_error           = 1
+      OTHERS                  = 2.
 
   IF sy-subrc <> 0.
     MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
@@ -305,15 +304,6 @@ FORM build_fieldcat CHANGING pt_fieldcat TYPE slis_t_fieldcat_alv.
   ls_fieldcat-outputlen = 4.
   APPEND ls_fieldcat TO pt_fieldcat.
 
-ENDFORM.
-
-*&---------------------------------------------------------------------*
-*&      Form  SET_PF_STATUS
-*&---------------------------------------------------------------------*
-*       Set PF Status for ALV
-*----------------------------------------------------------------------*
-FORM set_pf_status USING rt_extab TYPE slis_t_extab.
-  SET PF-STATUS 'STANDARD'.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
