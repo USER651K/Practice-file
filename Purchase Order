@@ -1,0 +1,641 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_PURCHASE_ORDER_REPORT
+*&---------------------------------------------------------------------*
+*& Purpose: Display Purchase Order Report with Item Details
+*&---------------------------------------------------------------------*
+REPORT z_purchase_order_report.
+
+*----------------------------------------------------------------------*
+* Type Definitions
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_po_header,
+         ebeln TYPE ekko-ebeln,        "PO Number
+         bukrs TYPE ekko-bukrs,        "Company Code
+         bstyp TYPE ekko-bstyp,        "Document Category
+         bsart TYPE ekko-bsart,        "Document Type
+         lifnr TYPE ekko-lifnr,        "Vendor Number
+         name1 TYPE lfa1-name1,        "Vendor Name
+         ekorg TYPE ekko-ekorg,        "Purchasing Organization
+         ekgrp TYPE ekko-ekgrp,        "Purchasing Group
+         bedat TYPE ekko-bedat,        "PO Date
+         aedat TYPE ekko-aedat,        "Changed On
+         ernam TYPE ekko-ernam,        "Created By
+         zterm TYPE ekko-zterm,        "Payment Terms
+         inco1 TYPE ekko-inco1,        "Incoterms
+         waers TYPE ekko-waers,        "Currency
+         total_value TYPE ekko-waers,  "Total PO Value
+         memory TYPE c LENGTH 1,       "Memory for selection
+       END OF ty_po_header.
+
+TYPES: BEGIN OF ty_po_item,
+         ebeln TYPE ekpo-ebeln,        "PO Number
+         ebelp TYPE ekpo-ebelp,        "PO Item
+         matnr TYPE ekpo-matnr,        "Material Number
+         maktx TYPE makt-maktx,        "Material Description
+         werks TYPE ekpo-werks,        "Plant
+         lgort TYPE ekpo-lgort,        "Storage Location
+         menge TYPE ekpo-menge,        "Quantity
+         meins TYPE ekpo-meins,        "Unit
+         netpr TYPE ekpo-netpr,        "Net Price
+         peinh TYPE ekpo-peinh,        "Price Unit
+         netwr TYPE ekpo-netwr,        "Net Value
+         mwskz TYPE ekpo-mwskz,        "Tax Code
+         elikz TYPE ekpo-elikz,        "Delivery Completed
+         loekz TYPE ekpo-loekz,        "Deletion Indicator
+       END OF ty_po_item.
+
+*----------------------------------------------------------------------*
+* Internal Tables and Work Areas
+*----------------------------------------------------------------------*
+DATA: gt_po_header TYPE TABLE OF ty_po_header,
+      gs_po_header TYPE ty_po_header,
+      gt_po_item   TYPE TABLE OF ty_po_item,
+      gs_po_item   TYPE ty_po_item,
+      gt_ekko      TYPE TABLE OF ekko,
+      gs_ekko      TYPE ekko,
+      gt_ekpo      TYPE TABLE OF ekpo,
+      gs_ekpo      TYPE ekpo,
+      gt_lfa1      TYPE TABLE OF lfa1,
+      gs_lfa1      TYPE lfa1,
+      gt_makt      TYPE TABLE OF makt,
+      gs_makt      TYPE makt.
+
+*----------------------------------------------------------------------*
+* Selection Screen
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  SELECT-OPTIONS: s_ebeln FOR gs_ekko-ebeln,      "PO Number
+                  s_lifnr FOR gs_ekko-lifnr,      "Vendor
+                  s_bukrs FOR gs_ekko-bukrs,      "Company Code
+                  s_ekorg FOR gs_ekko-ekorg,      "Purch. Organization
+                  s_ekgrp FOR gs_ekko-ekgrp,      "Purch. Group
+                  s_bedat FOR gs_ekko-bedat,      "PO Date
+                  s_bsart FOR gs_ekko-bsart,      "Document Type
+                  s_matnr FOR gs_ekpo-matnr,      "Material Number
+                  s_werks FOR gs_ekpo-werks.      "Plant
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+  PARAMETERS: p_spras TYPE makt-spras DEFAULT sy-langu. "Language
+  PARAMETERS: p_detail AS CHECKBOX DEFAULT 'X'.         "Show Items
+  PARAMETERS: p_deliv  AS CHECKBOX.                     "Show Completed
+SELECTION-SCREEN END OF BLOCK b2.
+
+*----------------------------------------------------------------------*
+* Initialization
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  TEXT-001 = 'Selection Criteria'.
+  TEXT-002 = 'Display Options'.
+
+*----------------------------------------------------------------------*
+* Start of Selection
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_po_data.
+  
+  IF p_detail = 'X'.
+    PERFORM get_po_items.
+    PERFORM display_po_with_items.
+  ELSE.
+    PERFORM display_po_header.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* End of Selection
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  IF gt_po_header IS INITIAL.
+    MESSAGE 'No Purchase Orders found for the given selection' TYPE 'S'
+            DISPLAY LIKE 'W'.
+  ENDIF.
+
+*&---------------------------------------------------------------------*
+*&      Form  GET_PO_DATA
+*&---------------------------------------------------------------------*
+*       Get Purchase Order Header Data
+*----------------------------------------------------------------------*
+FORM get_po_data.
+
+  DATA: lv_total TYPE ekko-waers.
+
+  " Select PO Header data
+  SELECT ebeln bukrs bstyp bsart lifnr ekorg ekgrp
+         bedat aedat ernam zterm inco1 waers
+    FROM ekko
+    INTO CORRESPONDING FIELDS OF TABLE gt_ekko
+    WHERE ebeln IN s_ebeln
+      AND lifnr IN s_lifnr
+      AND bukrs IN s_bukrs
+      AND ekorg IN s_ekorg
+      AND ekgrp IN s_ekgrp
+      AND bedat IN s_bedat
+      AND bsart IN s_bsart
+      AND bstyp = 'F'.              "F = Purchase Order
+
+  IF sy-subrc = 0.
+    " Get Vendor Names
+    IF gt_ekko IS NOT INITIAL.
+      SELECT lifnr name1
+        FROM lfa1
+        INTO CORRESPONDING FIELDS OF TABLE gt_lfa1
+        FOR ALL ENTRIES IN gt_ekko
+        WHERE lifnr = gt_ekko-lifnr.
+
+      " Build header table with vendor names
+      LOOP AT gt_ekko INTO gs_ekko.
+        gs_po_header-ebeln = gs_ekko-ebeln.
+        gs_po_header-bukrs = gs_ekko-bukrs.
+        gs_po_header-bstyp = gs_ekko-bstyp.
+        gs_po_header-bsart = gs_ekko-bsart.
+        gs_po_header-lifnr = gs_ekko-lifnr.
+        gs_po_header-ekorg = gs_ekko-ekorg.
+        gs_po_header-ekgrp = gs_ekko-ekgrp.
+        gs_po_header-bedat = gs_ekko-bedat.
+        gs_po_header-aedat = gs_ekko-aedat.
+        gs_po_header-ernam = gs_ekko-ernam.
+        gs_po_header-zterm = gs_ekko-zterm.
+        gs_po_header-inco1 = gs_ekko-inco1.
+        gs_po_header-waers = gs_ekko-waers.
+
+        " Get vendor name
+        READ TABLE gt_lfa1 INTO gs_lfa1 WITH KEY lifnr = gs_ekko-lifnr.
+        IF sy-subrc = 0.
+          gs_po_header-name1 = gs_lfa1-name1.
+        ENDIF.
+
+        " Calculate total PO value
+        CLEAR lv_total.
+        SELECT SUM( netwr )
+          FROM ekpo
+          INTO lv_total
+          WHERE ebeln = gs_ekko-ebeln
+            AND loekz = space.        "Not deleted
+        gs_po_header-total_value = lv_total.
+
+        APPEND gs_po_header TO gt_po_header.
+        CLEAR: gs_po_header, gs_ekko, gs_lfa1.
+      ENDLOOP.
+
+      " Sort by PO Number
+      SORT gt_po_header BY ebeln.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  GET_PO_ITEMS
+*&---------------------------------------------------------------------*
+*       Get Purchase Order Item Data
+*----------------------------------------------------------------------*
+FORM get_po_items.
+
+  " Select PO Items based on header data
+  IF gt_po_header IS NOT INITIAL.
+    SELECT ebeln ebelp matnr werks lgort menge meins
+           netpr peinh netwr mwskz elikz loekz
+      FROM ekpo
+      INTO CORRESPONDING FIELDS OF TABLE gt_ekpo
+      FOR ALL ENTRIES IN gt_po_header
+      WHERE ebeln = gt_po_header-ebeln
+        AND matnr IN s_matnr
+        AND werks IN s_werks
+        AND loekz = space.            "Not deleted
+
+    IF sy-subrc = 0.
+      " Filter delivery completed if needed
+      IF p_deliv IS INITIAL.
+        DELETE gt_ekpo WHERE elikz = 'X'.
+      ENDIF.
+
+      " Get Material Descriptions
+      IF gt_ekpo IS NOT INITIAL.
+        SELECT matnr maktx
+          FROM makt
+          INTO CORRESPONDING FIELDS OF TABLE gt_makt
+          FOR ALL ENTRIES IN gt_ekpo
+          WHERE matnr = gt_ekpo-matnr
+            AND spras = p_spras.
+
+        " Build item table with descriptions
+        LOOP AT gt_ekpo INTO gs_ekpo.
+          gs_po_item-ebeln = gs_ekpo-ebeln.
+          gs_po_item-ebelp = gs_ekpo-ebelp.
+          gs_po_item-matnr = gs_ekpo-matnr.
+          gs_po_item-werks = gs_ekpo-werks.
+          gs_po_item-lgort = gs_ekpo-lgort.
+          gs_po_item-menge = gs_ekpo-menge.
+          gs_po_item-meins = gs_ekpo-meins.
+          gs_po_item-netpr = gs_ekpo-netpr.
+          gs_po_item-peinh = gs_ekpo-peinh.
+          gs_po_item-netwr = gs_ekpo-netwr.
+          gs_po_item-mwskz = gs_ekpo-mwskz.
+          gs_po_item-elikz = gs_ekpo-elikz.
+          gs_po_item-loekz = gs_ekpo-loekz.
+
+          " Get material description
+          READ TABLE gt_makt INTO gs_makt WITH KEY matnr = gs_ekpo-matnr.
+          IF sy-subrc = 0.
+            gs_po_item-maktx = gs_makt-maktx.
+          ENDIF.
+
+          APPEND gs_po_item TO gt_po_item.
+          CLEAR: gs_po_item, gs_ekpo, gs_makt.
+        ENDLOOP.
+
+        " Sort by PO Number and Item
+        SORT gt_po_item BY ebeln ebelp.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_PO_HEADER
+*&---------------------------------------------------------------------*
+*       Display PO Header Only
+*----------------------------------------------------------------------*
+FORM display_po_header.
+
+  DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+        ls_fieldcat TYPE slis_fieldcat_alv,
+        ls_layout   TYPE slis_layout_alv.
+
+  " Build field catalog for header
+  PERFORM build_header_fieldcat CHANGING lt_fieldcat.
+
+  " Set layout
+  ls_layout-zebra             = 'X'.
+  ls_layout-colwidth_optimize = 'X'.
+
+  " Display ALV
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program      = sy-repid
+      i_callback_user_command = 'USER_COMMAND_HEADER'
+      is_layout               = ls_layout
+      it_fieldcat             = lt_fieldcat
+      i_grid_title            = 'Purchase Order List'
+      i_save                  = 'A'
+    TABLES
+      t_outtab                = gt_po_header
+    EXCEPTIONS
+      program_error           = 1
+      OTHERS                  = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_PO_WITH_ITEMS
+*&---------------------------------------------------------------------*
+*       Display PO Header with Items (Hierarchical)
+*----------------------------------------------------------------------*
+FORM display_po_with_items.
+
+  DATA: lt_fieldcat_header TYPE slis_t_fieldcat_alv,
+        lt_fieldcat_item   TYPE slis_t_fieldcat_alv,
+        ls_layout          TYPE slis_layout_alv,
+        ls_keyinfo         TYPE slis_keyinfo_alv.
+
+  " Build field catalogs
+  PERFORM build_header_fieldcat CHANGING lt_fieldcat_header.
+  PERFORM build_item_fieldcat CHANGING lt_fieldcat_item.
+
+  " Set layout
+  ls_layout-zebra             = 'X'.
+  ls_layout-colwidth_optimize = 'X'.
+  ls_layout-expand_fieldname  = 'MEMORY'.
+
+  " Set key info for hierarchical display
+  ls_keyinfo-header01 = 'EBELN'.
+  ls_keyinfo-item01   = 'EBELN'.
+
+  " Display Hierarchical ALV
+  CALL FUNCTION 'REUSE_ALV_HIERSEQ_LIST_DISPLAY'
+    EXPORTING
+      i_callback_program      = sy-repid
+      i_callback_user_command = 'USER_COMMAND_HIER'
+      is_layout               = ls_layout
+      it_fieldcat             = lt_fieldcat_header
+      it_fieldcat_item        = lt_fieldcat_item
+      i_tabname_header        = 'GT_PO_HEADER'
+      i_tabname_item          = 'GT_PO_ITEM'
+      is_keyinfo              = ls_keyinfo
+      i_save                  = 'A'
+    TABLES
+      t_outtab_header         = gt_po_header
+      t_outtab_item           = gt_po_item
+    EXCEPTIONS
+      program_error           = 1
+      OTHERS                  = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_HEADER_FIELDCAT
+*&---------------------------------------------------------------------*
+*       Build Field Catalog for PO Header
+*----------------------------------------------------------------------*
+FORM build_header_fieldcat CHANGING pt_fieldcat TYPE slis_t_fieldcat_alv.
+
+  DATA: ls_fieldcat TYPE slis_fieldcat_alv.
+
+  " PO Number
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'EBELN'.
+  ls_fieldcat-seltext_l = 'Purchase Order'.
+  ls_fieldcat-seltext_m = 'PO Number'.
+  ls_fieldcat-seltext_s = 'PO'.
+  ls_fieldcat-outputlen = 10.
+  ls_fieldcat-key       = 'X'.
+  ls_fieldcat-hotspot   = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Vendor Number
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'LIFNR'.
+  ls_fieldcat-seltext_l = 'Vendor Number'.
+  ls_fieldcat-seltext_m = 'Vendor'.
+  ls_fieldcat-seltext_s = 'Vendor'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Vendor Name
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'NAME1'.
+  ls_fieldcat-seltext_l = 'Vendor Name'.
+  ls_fieldcat-seltext_m = 'Vendor Name'.
+  ls_fieldcat-seltext_s = 'Name'.
+  ls_fieldcat-outputlen = 35.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Document Type
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'BSART'.
+  ls_fieldcat-seltext_l = 'Document Type'.
+  ls_fieldcat-seltext_m = 'Doc Type'.
+  ls_fieldcat-seltext_s = 'Type'.
+  ls_fieldcat-outputlen = 8.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Company Code
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'BUKRS'.
+  ls_fieldcat-seltext_l = 'Company Code'.
+  ls_fieldcat-seltext_m = 'Co. Code'.
+  ls_fieldcat-seltext_s = 'Co.Cd'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Purchasing Organization
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'EKORG'.
+  ls_fieldcat-seltext_l = 'Purch. Organization'.
+  ls_fieldcat-seltext_m = 'Purch Org'.
+  ls_fieldcat-seltext_s = 'POrg'.
+  ls_fieldcat-outputlen = 8.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Purchasing Group
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'EKGRP'.
+  ls_fieldcat-seltext_l = 'Purchasing Group'.
+  ls_fieldcat-seltext_m = 'Purch Grp'.
+  ls_fieldcat-seltext_s = 'PGrp'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " PO Date
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'BEDAT'.
+  ls_fieldcat-seltext_l = 'PO Date'.
+  ls_fieldcat-seltext_m = 'PO Date'.
+  ls_fieldcat-seltext_s = 'Date'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Currency
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'WAERS'.
+  ls_fieldcat-seltext_l = 'Currency'.
+  ls_fieldcat-seltext_m = 'Currency'.
+  ls_fieldcat-seltext_s = 'Curr'.
+  ls_fieldcat-outputlen = 5.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Total Value
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'TOTAL_VALUE'.
+  ls_fieldcat-seltext_l = 'Total PO Value'.
+  ls_fieldcat-seltext_m = 'Total Value'.
+  ls_fieldcat-seltext_s = 'Value'.
+  ls_fieldcat-outputlen = 15.
+  ls_fieldcat-do_sum    = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Payment Terms
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'ZTERM'.
+  ls_fieldcat-seltext_l = 'Payment Terms'.
+  ls_fieldcat-seltext_m = 'Pay Terms'.
+  ls_fieldcat-seltext_s = 'Terms'.
+  ls_fieldcat-outputlen = 8.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Incoterms
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'INCO1'.
+  ls_fieldcat-seltext_l = 'Incoterms'.
+  ls_fieldcat-seltext_m = 'Incoterms'.
+  ls_fieldcat-seltext_s = 'Inco'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Created By
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'ERNAM'.
+  ls_fieldcat-seltext_l = 'Created By'.
+  ls_fieldcat-seltext_m = 'Created By'.
+  ls_fieldcat-seltext_s = 'Cr.By'.
+  ls_fieldcat-outputlen = 12.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_ITEM_FIELDCAT
+*&---------------------------------------------------------------------*
+*       Build Field Catalog for PO Items
+*----------------------------------------------------------------------*
+FORM build_item_fieldcat CHANGING pt_fieldcat TYPE slis_t_fieldcat_alv.
+
+  DATA: ls_fieldcat TYPE slis_fieldcat_alv.
+
+  " Item Number
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'EBELP'.
+  ls_fieldcat-seltext_l = 'Item Number'.
+  ls_fieldcat-seltext_m = 'Item'.
+  ls_fieldcat-seltext_s = 'Item'.
+  ls_fieldcat-outputlen = 5.
+  ls_fieldcat-key       = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Material Number
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MATNR'.
+  ls_fieldcat-seltext_l = 'Material Number'.
+  ls_fieldcat-seltext_m = 'Material'.
+  ls_fieldcat-seltext_s = 'Material'.
+  ls_fieldcat-outputlen = 18.
+  ls_fieldcat-hotspot   = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Material Description
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MAKTX'.
+  ls_fieldcat-seltext_l = 'Material Description'.
+  ls_fieldcat-seltext_m = 'Description'.
+  ls_fieldcat-seltext_s = 'Desc'.
+  ls_fieldcat-outputlen = 40.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Plant
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'WERKS'.
+  ls_fieldcat-seltext_l = 'Plant'.
+  ls_fieldcat-seltext_m = 'Plant'.
+  ls_fieldcat-seltext_s = 'Plant'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Storage Location
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'LGORT'.
+  ls_fieldcat-seltext_l = 'Storage Location'.
+  ls_fieldcat-seltext_m = 'Stor Loc'.
+  ls_fieldcat-seltext_s = 'SLoc'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Quantity
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MENGE'.
+  ls_fieldcat-seltext_l = 'Quantity'.
+  ls_fieldcat-seltext_m = 'Quantity'.
+  ls_fieldcat-seltext_s = 'Qty'.
+  ls_fieldcat-outputlen = 13.
+  ls_fieldcat-do_sum    = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Unit
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MEINS'.
+  ls_fieldcat-seltext_l = 'Unit'.
+  ls_fieldcat-seltext_m = 'Unit'.
+  ls_fieldcat-seltext_s = 'Unit'.
+  ls_fieldcat-outputlen = 5.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Net Price
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'NETPR'.
+  ls_fieldcat-seltext_l = 'Net Price'.
+  ls_fieldcat-seltext_m = 'Net Price'.
+  ls_fieldcat-seltext_s = 'Price'.
+  ls_fieldcat-outputlen = 15.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Price Unit
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'PEINH'.
+  ls_fieldcat-seltext_l = 'Price Unit'.
+  ls_fieldcat-seltext_m = 'Per'.
+  ls_fieldcat-seltext_s = 'Per'.
+  ls_fieldcat-outputlen = 5.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Net Value
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'NETWR'.
+  ls_fieldcat-seltext_l = 'Net Value'.
+  ls_fieldcat-seltext_m = 'Net Value'.
+  ls_fieldcat-seltext_s = 'Value'.
+  ls_fieldcat-outputlen = 15.
+  ls_fieldcat-do_sum    = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Tax Code
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MWSKZ'.
+  ls_fieldcat-seltext_l = 'Tax Code'.
+  ls_fieldcat-seltext_m = 'Tax Code'.
+  ls_fieldcat-seltext_s = 'Tax'.
+  ls_fieldcat-outputlen = 5.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Delivery Completed
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'ELIKZ'.
+  ls_fieldcat-seltext_l = 'Delivery Completed'.
+  ls_fieldcat-seltext_m = 'Del.Compl'.
+  ls_fieldcat-seltext_s = 'Del'.
+  ls_fieldcat-outputlen = 4.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  USER_COMMAND_HEADER
+*&---------------------------------------------------------------------*
+*       Handle User Commands for Header Only Display
+*----------------------------------------------------------------------*
+FORM user_command_header USING r_ucomm     LIKE sy-ucomm
+                               rs_selfield TYPE slis_selfield.
+
+  CASE r_ucomm.
+    WHEN '&IC1'.  " Double-click or hotspot click
+      IF rs_selfield-fieldname = 'EBELN'.
+        " Display PO in ME23N
+        SET PARAMETER ID 'BES' FIELD rs_selfield-value.
+        CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN.
+      ENDIF.
+  ENDCASE.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  USER_COMMAND_HIER
+*&---------------------------------------------------------------------*
+*       Handle User Commands for Hierarchical Display
+*----------------------------------------------------------------------*
+FORM user_command_hier USING r_ucomm     LIKE sy-ucomm
+                             rs_selfield TYPE slis_selfield.
+
+  CASE r_ucomm.
+    WHEN '&IC1'.  " Double-click or hotspot click
+      CASE rs_selfield-fieldname.
+        WHEN 'EBELN'.
+          " Display PO in ME23N
+          SET PARAMETER ID 'BES' FIELD rs_selfield-value.
+          CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN.
+        WHEN 'MATNR'.
+          " Display Material in MM03
+          SET PARAMETER ID 'MAT' FIELD rs_selfield-value.
+          CALL TRANSACTION 'MM03' AND SKIP FIRST SCREEN.
+      ENDCASE.
+  ENDCASE.
+
+ENDFORM.
