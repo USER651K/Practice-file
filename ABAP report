@@ -155,6 +155,7 @@ FORM display_material_list.
         ls_fieldcat TYPE slis_fieldcat_alv,
         ls_layout   TYPE slis_layout_alv,
         lv_lines    TYPE i,
+        lv_lines_c(10) TYPE c,
         lv_text(50) TYPE c.
 
   " Build field catalog
@@ -167,7 +168,9 @@ FORM display_material_list.
 
   " Count records
   DESCRIBE TABLE gt_material LINES lv_lines.
-  CONCATENATE 'Total Records:' lv_lines INTO lv_text SEPARATED BY space.
+  lv_lines_c = lv_lines.
+  CONDENSE lv_lines_c.
+  CONCATENATE 'Total Records:' lv_lines_c INTO lv_text SEPARATED BY space.
 
   " Display ALV
   CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
