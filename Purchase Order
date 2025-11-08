@@ -60,10 +60,14 @@ DATA: gt_po_header TYPE TABLE OF ty_po_header,
       gt_makt      TYPE TABLE OF makt,
       gs_makt      TYPE makt.
 
+" Titles for selection screen blocks
+DATA: title1 TYPE char50 VALUE 'Selection Criteria',
+      title2 TYPE char50 VALUE 'Display Options'.
+
 *----------------------------------------------------------------------*
 * Selection Screen
 *----------------------------------------------------------------------*
-SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE title1.
   SELECT-OPTIONS: s_ebeln FOR gs_ekko-ebeln,      "PO Number
                   s_lifnr FOR gs_ekko-lifnr,      "Vendor
                   s_bukrs FOR gs_ekko-bukrs,      "Company Code
@@ -75,7 +79,7 @@ SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
                   s_werks FOR gs_ekpo-werks.      "Plant
 SELECTION-SCREEN END OF BLOCK b1.
 
-SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE title2.
   PARAMETERS: p_spras TYPE makt-spras DEFAULT sy-langu. "Language
   PARAMETERS: p_detail AS CHECKBOX DEFAULT 'X'.         "Show Items
   PARAMETERS: p_deliv  AS CHECKBOX.                     "Show Completed
@@ -85,8 +89,8 @@ SELECTION-SCREEN END OF BLOCK b2.
 * Initialization
 *----------------------------------------------------------------------*
 INITIALIZATION.
-  TEXT-001 = 'Selection Criteria'.
-  TEXT-002 = 'Display Options'.
+  " Text elements are maintained via SE38 -> Goto -> Text Elements
+  " No code needed here for basic initialization
 
 *----------------------------------------------------------------------*
 * Start of Selection
@@ -117,7 +121,7 @@ END-OF-SELECTION.
 *----------------------------------------------------------------------*
 FORM get_po_data.
 
-  DATA: lv_total TYPE ekko-waers.
+  DATA: lv_total TYPE ekpo-netwr.
 
   " Select PO Header data
   SELECT ebeln bukrs bstyp bsart lifnr ekorg ekgrp
