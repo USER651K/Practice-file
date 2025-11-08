@@ -1,0 +1,333 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_MATERIAL_MASTER_LIST
+*&---------------------------------------------------------------------*
+*& Purpose: Display Material Master List with Selection Criteria
+*&---------------------------------------------------------------------*
+REPORT z_material_master_list.
+
+*----------------------------------------------------------------------*
+* Type Definitions
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_material,
+         matnr TYPE mara-matnr,        "Material Number
+         maktx TYPE makt-maktx,        "Material Description
+         mtart TYPE mara-mtart,        "Material Type
+         mbrsh TYPE mara-mbrsh,        "Industry Sector
+         meins TYPE mara-meins,        "Base Unit of Measure
+         matkl TYPE mara-matkl,        "Material Group
+         ersda TYPE mara-ersda,        "Created On
+         ernam TYPE mara-ernam,        "Created By
+         laeda TYPE mara-laeda,        "Last Change Date
+         aenam TYPE mara-aenam,        "Changed By
+         lvorm TYPE mara-lvorm,        "Deletion Flag
+         vpsta TYPE mara-vpsta,        "Maintenance Status
+         pstat TYPE mara-pstat,        "Maintenance Status
+       END OF ty_material.
+
+*----------------------------------------------------------------------*
+* Internal Tables and Work Areas
+*----------------------------------------------------------------------*
+DATA: gt_material TYPE TABLE OF ty_material,
+      gs_material TYPE ty_material,
+      gt_mara     TYPE TABLE OF mara,
+      gs_mara     TYPE mara,
+      gt_makt     TYPE TABLE OF makt,
+      gs_makt     TYPE makt.
+
+*----------------------------------------------------------------------*
+* Selection Screen
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  SELECT-OPTIONS: s_matnr FOR gs_material-matnr,      "Material Number
+                  s_mtart FOR gs_material-mtart,      "Material Type
+                  s_mbrsh FOR gs_material-mbrsh,      "Industry Sector
+                  s_matkl FOR gs_material-matkl,      "Material Group
+                  s_ersda FOR gs_material-ersda,      "Created On
+                  s_ernam FOR gs_material-ernam,      "Created By
+                  s_laeda FOR gs_material-laeda.      "Last Change
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+  PARAMETERS: p_spras TYPE makt-spras DEFAULT sy-langu. "Language
+  PARAMETERS: p_del   AS CHECKBOX.                      "Show Deleted
+SELECTION-SCREEN END OF BLOCK b2.
+
+*----------------------------------------------------------------------*
+* Initialization
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  TEXT-001 = 'Selection Criteria'.
+  TEXT-002 = 'Additional Options'.
+
+*----------------------------------------------------------------------*
+* Start of Selection
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_material_data.
+  PERFORM display_material_list.
+
+*----------------------------------------------------------------------*
+* End of Selection
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  IF gt_material IS INITIAL.
+    MESSAGE 'No data found for the given selection criteria' TYPE 'S'
+            DISPLAY LIKE 'W'.
+  ENDIF.
+
+*&---------------------------------------------------------------------*
+*&      Form  GET_MATERIAL_DATA
+*&---------------------------------------------------------------------*
+*       Get Material Master Data
+*----------------------------------------------------------------------*
+FORM get_material_data.
+  
+  DATA: lv_lines TYPE i.
+
+  " Select material general data
+  SELECT matnr mtart mbrsh meins matkl ersda ernam laeda aenam
+         lvorm vpsta pstat
+    FROM mara
+    INTO CORRESPONDING FIELDS OF TABLE gt_mara
+    WHERE matnr IN s_matnr
+      AND mtart IN s_mtart
+      AND mbrsh IN s_mbrsh
+      AND matkl IN s_matkl
+      AND ersda IN s_ersda
+      AND ernam IN s_ernam
+      AND laeda IN s_laeda.
+
+  IF sy-subrc = 0.
+    " Remove deleted materials if checkbox not selected
+    IF p_del IS INITIAL.
+      DELETE gt_mara WHERE lvorm = 'X'.
+    ENDIF.
+
+    IF gt_mara IS NOT INITIAL.
+      " Select material descriptions
+      SELECT matnr maktx
+        FROM makt
+        INTO CORRESPONDING FIELDS OF TABLE gt_makt
+        FOR ALL ENTRIES IN gt_mara
+        WHERE matnr = gt_mara-matnr
+          AND spras = p_spras.
+
+      " Combine data
+      LOOP AT gt_mara INTO gs_mara.
+        gs_material-matnr = gs_mara-matnr.
+        gs_material-mtart = gs_mara-mtart.
+        gs_material-mbrsh = gs_mara-mbrsh.
+        gs_material-meins = gs_mara-meins.
+        gs_material-matkl = gs_mara-matkl.
+        gs_material-ersda = gs_mara-ersda.
+        gs_material-ernam = gs_mara-ernam.
+        gs_material-laeda = gs_mara-laeda.
+        gs_material-aenam = gs_mara-aenam.
+        gs_material-lvorm = gs_mara-lvorm.
+        gs_material-vpsta = gs_mara-vpsta.
+        gs_material-pstat = gs_mara-pstat.
+
+        " Get description
+        READ TABLE gt_makt INTO gs_makt WITH KEY matnr = gs_mara-matnr.
+        IF sy-subrc = 0.
+          gs_material-maktx = gs_makt-maktx.
+        ENDIF.
+
+        APPEND gs_material TO gt_material.
+        CLEAR: gs_material, gs_mara, gs_makt.
+      ENDLOOP.
+
+      " Sort by material number
+      SORT gt_material BY matnr.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_MATERIAL_LIST
+*&---------------------------------------------------------------------*
+*       Display Material List using ALV
+*----------------------------------------------------------------------*
+FORM display_material_list.
+
+  DATA: lt_fieldcat TYPE slis_t_fieldcat_alv,
+        ls_fieldcat TYPE slis_fieldcat_alv,
+        ls_layout   TYPE slis_layout_alv,
+        lv_lines    TYPE i,
+        lv_text(50) TYPE c.
+
+  " Build field catalog
+  PERFORM build_fieldcat CHANGING lt_fieldcat.
+
+  " Set layout
+  ls_layout-zebra             = 'X'.
+  ls_layout-colwidth_optimize = 'X'.
+  ls_layout-info_fieldname    = 'COLOR'.
+
+  " Count records
+  DESCRIBE TABLE gt_material LINES lv_lines.
+  CONCATENATE 'Total Records:' lv_lines INTO lv_text SEPARATED BY space.
+
+  " Display ALV
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program       = sy-repid
+      i_callback_pf_status_set = 'SET_PF_STATUS'
+      i_callback_user_command  = 'USER_COMMAND'
+      is_layout                = ls_layout
+      it_fieldcat              = lt_fieldcat
+      i_grid_title             = 'Material Master List'
+      i_save                   = 'A'
+    TABLES
+      t_outtab                 = gt_material
+    EXCEPTIONS
+      program_error            = 1
+      OTHERS                   = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_FIELDCAT
+*&---------------------------------------------------------------------*
+*       Build Field Catalog for ALV Display
+*----------------------------------------------------------------------*
+FORM build_fieldcat CHANGING pt_fieldcat TYPE slis_t_fieldcat_alv.
+
+  DATA: ls_fieldcat TYPE slis_fieldcat_alv.
+
+  " Material Number
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MATNR'.
+  ls_fieldcat-seltext_l = 'Material Number'.
+  ls_fieldcat-seltext_m = 'Material No'.
+  ls_fieldcat-seltext_s = 'Material'.
+  ls_fieldcat-outputlen = 18.
+  ls_fieldcat-key       = 'X'.
+  ls_fieldcat-hotspot   = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Material Description
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MAKTX'.
+  ls_fieldcat-seltext_l = 'Material Description'.
+  ls_fieldcat-seltext_m = 'Description'.
+  ls_fieldcat-seltext_s = 'Desc'.
+  ls_fieldcat-outputlen = 40.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Material Type
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MTART'.
+  ls_fieldcat-seltext_l = 'Material Type'.
+  ls_fieldcat-seltext_m = 'Mat. Type'.
+  ls_fieldcat-seltext_s = 'Type'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Industry Sector
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MBRSH'.
+  ls_fieldcat-seltext_l = 'Industry Sector'.
+  ls_fieldcat-seltext_m = 'Ind. Sector'.
+  ls_fieldcat-seltext_s = 'Sector'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Base Unit of Measure
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MEINS'.
+  ls_fieldcat-seltext_l = 'Base Unit'.
+  ls_fieldcat-seltext_m = 'Base Unit'.
+  ls_fieldcat-seltext_s = 'UoM'.
+  ls_fieldcat-outputlen = 6.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Material Group
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'MATKL'.
+  ls_fieldcat-seltext_l = 'Material Group'.
+  ls_fieldcat-seltext_m = 'Mat. Group'.
+  ls_fieldcat-seltext_s = 'MGroup'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Created On
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'ERSDA'.
+  ls_fieldcat-seltext_l = 'Created On'.
+  ls_fieldcat-seltext_m = 'Created On'.
+  ls_fieldcat-seltext_s = 'Created'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Created By
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'ERNAM'.
+  ls_fieldcat-seltext_l = 'Created By'.
+  ls_fieldcat-seltext_m = 'Created By'.
+  ls_fieldcat-seltext_s = 'Cr.By'.
+  ls_fieldcat-outputlen = 12.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Last Changed
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'LAEDA'.
+  ls_fieldcat-seltext_l = 'Last Changed'.
+  ls_fieldcat-seltext_m = 'Changed On'.
+  ls_fieldcat-seltext_s = 'Changed'.
+  ls_fieldcat-outputlen = 10.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Changed By
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'AENAM'.
+  ls_fieldcat-seltext_l = 'Changed By'.
+  ls_fieldcat-seltext_m = 'Changed By'.
+  ls_fieldcat-seltext_s = 'Ch.By'.
+  ls_fieldcat-outputlen = 12.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Deletion Flag
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = 'LVORM'.
+  ls_fieldcat-seltext_l = 'Deletion Flag'.
+  ls_fieldcat-seltext_m = 'Del. Flag'.
+  ls_fieldcat-seltext_s = 'Del'.
+  ls_fieldcat-outputlen = 4.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  SET_PF_STATUS
+*&---------------------------------------------------------------------*
+*       Set PF Status for ALV
+*----------------------------------------------------------------------*
+FORM set_pf_status USING rt_extab TYPE slis_t_extab.
+  SET PF-STATUS 'STANDARD'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  USER_COMMAND
+*&---------------------------------------------------------------------*
+*       Handle User Commands
+*----------------------------------------------------------------------*
+FORM user_command USING r_ucomm     LIKE sy-ucomm
+                        rs_selfield TYPE slis_selfield.
+
+  CASE r_ucomm.
+    WHEN '&IC1'.  " Double-click or hotspot click
+      IF rs_selfield-fieldname = 'MATNR'.
+        " Call Material Display transaction
+        SET PARAMETER ID 'MAT' FIELD rs_selfield-value.
+        CALL TRANSACTION 'MM03' AND SKIP FIRST SCREEN.
+      ENDIF.
+  ENDCASE.
+
+ENDFORM.
