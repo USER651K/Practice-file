@@ -1,0 +1,446 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_B_CONTRACT_MAILSEND
+*&---------------------------------------------------------------------*
+*& Main Program for Purchase Contract Display
+*&---------------------------------------------------------------------*
+REPORT zmm_b_contract_mailsend.
+
+*----------------------------------------------------------------------*
+* Include - TOP declarations
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_top.
+
+*----------------------------------------------------------------------*
+* Include - Selection Screen
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_scr.
+
+*----------------------------------------------------------------------*
+* Include - Selection Logic
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_sel.
+
+*----------------------------------------------------------------------*
+* Include - ALV Display
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_alv.
+
+*----------------------------------------------------------------------*
+* Initialization
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  PERFORM initialization.
+
+*----------------------------------------------------------------------*
+* Start of Selection
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_data.
+  PERFORM process_data.
+
+*----------------------------------------------------------------------*
+* End of Selection
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  PERFORM display_alv.
+
+*&---------------------------------------------------------------------*
+*& Include ZMM_B_CONTRACT_MAILSEND_TOP
+*&---------------------------------------------------------------------*
+*& TOP - Type and Data Declarations
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* Type Declarations
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_output,
+         ebeln      TYPE ekko-ebeln,      " Purchase Contract
+         ernam      TYPE ekko-ernam,      " Created by
+         aedat      TYPE ekko-aedat,      " Created on
+         lifnr      TYPE ekko-lifnr,      " Vendor
+         name1      TYPE lfa1-name1,      " Vendor Name
+         ebelp      TYPE ekpo-ebelp,      " Item
+         matnr      TYPE ekpo-matnr,      " Material
+         maktx      TYPE makt-maktx,      " Material Description
+         menge      TYPE ekpo-menge,      " Quantity
+         meins      TYPE ekpo-meins,      " UOM
+         netpr      TYPE ekpo-netpr,      " Price
+         waers      TYPE ekko-waers,      " Currency
+         netwr      TYPE ekpo-netwr,      " Net Value
+         inco1      TYPE ekko-inco1,      " Incoterms
+         inco2      TYPE ekko-inco2,      " Incoterms Location
+         zterm      TYPE ekko-zterm,      " Payment Terms
+         bsart      TYPE ekko-bsart,      " Document Type
+         bukrs      TYPE ekko-bukrs,      " Company Code
+         ekgrp      TYPE ekko-ekgrp,      " Purchasing Group
+       END OF ty_output.
+
+*----------------------------------------------------------------------*
+* Internal Tables
+*----------------------------------------------------------------------*
+DATA: gt_output TYPE TABLE OF ty_output,
+      gs_output TYPE ty_output.
+
+DATA: gt_ekko TYPE TABLE OF ekko,
+      gt_ekpo TYPE TABLE OF ekpo,
+      gt_lfa1 TYPE TABLE OF lfa1,
+      gt_makt TYPE TABLE OF makt.
+
+*----------------------------------------------------------------------*
+* ALV Objects
+*----------------------------------------------------------------------*
+DATA: go_alv       TYPE REF TO cl_salv_table,
+      go_functions TYPE REF TO cl_salv_functions,
+      go_columns   TYPE REF TO cl_salv_columns_table,
+      go_column    TYPE REF TO cl_salv_column_table,
+      go_display   TYPE REF TO cl_salv_display_settings.
+
+*----------------------------------------------------------------------*
+* Constants
+*----------------------------------------------------------------------*
+CONSTANTS: gc_bstyp_k TYPE ekko-bstyp VALUE 'K',  " Contract
+           gc_x       TYPE char1 VALUE 'X'.
+
+*&---------------------------------------------------------------------*
+*& Include ZMM_B_CONTRACT_MAILSEND_SCR
+*&---------------------------------------------------------------------*
+*& Selection Screen
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* Selection Screen
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  PARAMETERS: p_bukrs TYPE ekko-bukrs.              " Company Code
+  SELECT-OPTIONS: s_ebeln FOR ekko-ebeln,           " Purchase Contract
+                  s_aedat FOR ekko-aedat,           " Creation Date
+                  s_lifnr FOR ekko-lifnr,           " Vendor
+                  s_ekgrp FOR ekko-ekgrp,           " Purchasing Group
+                  s_bsart FOR ekko-bsart.           " Document Type
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------------*
+* Text Symbols
+*----------------------------------------------------------------------*
+* TEXT-001: 'Selection Criteria'
+
+*&---------------------------------------------------------------------*
+*& Include ZMM_B_CONTRACT_MAILSEND_SEL
+*&---------------------------------------------------------------------*
+*& Selection Logic - Data Retrieval and Processing
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form INITIALIZATION
+*&---------------------------------------------------------------------*
+FORM initialization.
+  " Set default values if needed
+  TEXT-001 = 'Selection Criteria'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form GET_DATA
+*&---------------------------------------------------------------------*
+*& Text: Retrieve data from database tables
+*&---------------------------------------------------------------------*
+FORM get_data.
+  " Get Purchase Contract Header data
+  SELECT ebeln
+         ernam
+         aedat
+         lifnr
+         waers
+         inco1
+         inco2
+         zterm
+         bsart
+         bukrs
+         ekgrp
+    FROM ekko
+    INTO CORRESPONDING FIELDS OF TABLE gt_ekko
+    WHERE ebeln IN s_ebeln
+      AND aedat IN s_aedat
+      AND lifnr IN s_lifnr
+      AND ekgrp IN s_ekgrp
+      AND bsart IN s_bsart
+      AND bukrs = p_bukrs
+      AND bstyp = gc_bstyp_k.
+
+  IF gt_ekko IS INITIAL.
+    MESSAGE 'No Purchase Contracts found for given selection' TYPE 'S' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Get Purchase Contract Item data
+  IF gt_ekko IS NOT INITIAL.
+    SELECT ebeln
+           ebelp
+           matnr
+           menge
+           meins
+           netpr
+           netwr
+      FROM ekpo
+      INTO CORRESPONDING FIELDS OF TABLE gt_ekpo
+      FOR ALL ENTRIES IN gt_ekko
+      WHERE ebeln = gt_ekko-ebeln
+        AND loekz = space.           " Not deleted
+  ENDIF.
+
+  " Get Vendor data
+  IF gt_ekko IS NOT INITIAL.
+    SELECT lifnr
+           name1
+      FROM lfa1
+      INTO CORRESPONDING FIELDS OF TABLE gt_lfa1
+      FOR ALL ENTRIES IN gt_ekko
+      WHERE lifnr = gt_ekko-lifnr.
+  ENDIF.
+
+  " Get Material Description
+  IF gt_ekpo IS NOT INITIAL.
+    SELECT matnr
+           maktx
+      FROM makt
+      INTO CORRESPONDING FIELDS OF TABLE gt_makt
+      FOR ALL ENTRIES IN gt_ekpo
+      WHERE matnr = gt_ekpo-matnr
+        AND spras = sy-langu.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form PROCESS_DATA
+*&---------------------------------------------------------------------*
+*& Text: Process and prepare data for display
+*&---------------------------------------------------------------------*
+FORM process_data.
+  DATA: ls_ekko TYPE ekko,
+        ls_ekpo TYPE ekpo,
+        ls_lfa1 TYPE lfa1,
+        ls_makt TYPE makt.
+
+  LOOP AT gt_ekko INTO ls_ekko.
+    LOOP AT gt_ekpo INTO ls_ekpo WHERE ebeln = ls_ekko-ebeln.
+      CLEAR gs_output.
+
+      " Header data
+      gs_output-ebeln = ls_ekko-ebeln.
+      gs_output-ernam = ls_ekko-ernam.
+      gs_output-aedat = ls_ekko-aedat.
+      gs_output-lifnr = ls_ekko-lifnr.
+      gs_output-waers = ls_ekko-waers.
+      gs_output-inco1 = ls_ekko-inco1.
+      gs_output-inco2 = ls_ekko-inco2.
+      gs_output-zterm = ls_ekko-zterm.
+      gs_output-bsart = ls_ekko-bsart.
+      gs_output-bukrs = ls_ekko-bukrs.
+      gs_output-ekgrp = ls_ekko-ekgrp.
+
+      " Vendor Name
+      READ TABLE gt_lfa1 INTO ls_lfa1 WITH KEY lifnr = ls_ekko-lifnr.
+      IF sy-subrc = 0.
+        gs_output-name1 = ls_lfa1-name1.
+      ENDIF.
+
+      " Item data
+      gs_output-ebelp = ls_ekpo-ebelp.
+      gs_output-matnr = ls_ekpo-matnr.
+      gs_output-menge = ls_ekpo-menge.
+      gs_output-meins = ls_ekpo-meins.
+      gs_output-netpr = ls_ekpo-netpr.
+      gs_output-netwr = ls_ekpo-netwr.
+
+      " Material Description
+      READ TABLE gt_makt INTO ls_makt WITH KEY matnr = ls_ekpo-matnr.
+      IF sy-subrc = 0.
+        gs_output-maktx = ls_makt-maktx.
+      ENDIF.
+
+      APPEND gs_output TO gt_output.
+    ENDLOOP.
+  ENDLOOP.
+
+  IF gt_output IS INITIAL.
+    MESSAGE 'No data to display' TYPE 'S' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Sort output table
+  SORT gt_output BY ebeln ebelp.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Include ZMM_B_CONTRACT_MAILSEND_ALV
+*&---------------------------------------------------------------------*
+*& ALV Display Logic
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*& Text: Display data in ALV Grid
+*&---------------------------------------------------------------------*
+FORM display_alv.
+  DATA: lv_msg TYPE string.
+
+  TRY.
+      " Create ALV instance
+      cl_salv_table=>factory(
+        IMPORTING
+          r_salv_table = go_alv
+        CHANGING
+          t_table      = gt_output ).
+
+      " Enable all standard functions
+      go_functions = go_alv->get_functions( ).
+      go_functions->set_all( gc_x ).
+
+      " Set display settings
+      go_display = go_alv->get_display_settings( ).
+      go_display->set_striped_pattern( gc_x ).
+      go_display->set_list_header( 'Purchase Contract Display - Mail Send' ).
+
+      " Get columns
+      go_columns = go_alv->get_columns( ).
+      go_columns->set_optimize( gc_x ).
+
+      " Set column descriptions
+      PERFORM set_column_properties.
+
+      " Display ALV
+      go_alv->display( ).
+
+    CATCH cx_salv_msg INTO DATA(lx_msg).
+      lv_msg = lx_msg->get_text( ).
+      MESSAGE lv_msg TYPE 'I'.
+  ENDTRY.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form SET_COLUMN_PROPERTIES
+*&---------------------------------------------------------------------*
+*& Text: Set ALV column properties
+*&---------------------------------------------------------------------*
+FORM set_column_properties.
+  DATA: lo_column TYPE REF TO cl_salv_column_table.
+
+  TRY.
+      " Contract Number
+      lo_column ?= go_columns->get_column( 'EBELN' ).
+      lo_column->set_short_text( 'Contract' ).
+      lo_column->set_medium_text( 'Contract No' ).
+      lo_column->set_long_text( 'Purchase Contract' ).
+
+      " Created By
+      lo_column ?= go_columns->get_column( 'ERNAM' ).
+      lo_column->set_short_text( 'Created' ).
+      lo_column->set_medium_text( 'Created by' ).
+      lo_column->set_long_text( 'Created by' ).
+
+      " Creation Date
+      lo_column ?= go_columns->get_column( 'AEDAT' ).
+      lo_column->set_short_text( 'Date' ).
+      lo_column->set_medium_text( 'Created on' ).
+      lo_column->set_long_text( 'Created on' ).
+
+      " Vendor Number
+      lo_column ?= go_columns->get_column( 'LIFNR' ).
+      lo_column->set_short_text( 'Vendor' ).
+      lo_column->set_medium_text( 'Vendor' ).
+      lo_column->set_long_text( 'Vendor Number' ).
+
+      " Vendor Name
+      lo_column ?= go_columns->get_column( 'NAME1' ).
+      lo_column->set_short_text( 'Name' ).
+      lo_column->set_medium_text( 'Vendor Name' ).
+      lo_column->set_long_text( 'Vendor Name' ).
+
+      " Item Number
+      lo_column ?= go_columns->get_column( 'EBELP' ).
+      lo_column->set_short_text( 'Item' ).
+      lo_column->set_medium_text( 'Item' ).
+      lo_column->set_long_text( 'Item Number' ).
+
+      " Material Number
+      lo_column ?= go_columns->get_column( 'MATNR' ).
+      lo_column->set_short_text( 'Material' ).
+      lo_column->set_medium_text( 'Material' ).
+      lo_column->set_long_text( 'Material Number' ).
+
+      " Material Description
+      lo_column ?= go_columns->get_column( 'MAKTX' ).
+      lo_column->set_short_text( 'Desc' ).
+      lo_column->set_medium_text( 'Description' ).
+      lo_column->set_long_text( 'Material Description' ).
+
+      " Quantity
+      lo_column ?= go_columns->get_column( 'MENGE' ).
+      lo_column->set_short_text( 'Quantity' ).
+      lo_column->set_medium_text( 'Quantity' ).
+      lo_column->set_long_text( 'Quantity' ).
+
+      " Unit of Measure
+      lo_column ?= go_columns->get_column( 'MEINS' ).
+      lo_column->set_short_text( 'UOM' ).
+      lo_column->set_medium_text( 'UOM' ).
+      lo_column->set_long_text( 'Unit of Measure' ).
+
+      " Net Price
+      lo_column ?= go_columns->get_column( 'NETPR' ).
+      lo_column->set_short_text( 'Price' ).
+      lo_column->set_medium_text( 'Price' ).
+      lo_column->set_long_text( 'Net Price' ).
+
+      " Currency
+      lo_column ?= go_columns->get_column( 'WAERS' ).
+      lo_column->set_short_text( 'Curr' ).
+      lo_column->set_medium_text( 'Currency' ).
+      lo_column->set_long_text( 'Currency' ).
+
+      " Net Value
+      lo_column ?= go_columns->get_column( 'NETWR' ).
+      lo_column->set_short_text( 'Value' ).
+      lo_column->set_medium_text( 'Net Value' ).
+      lo_column->set_long_text( 'Total Net Value' ).
+
+      " Incoterms
+      lo_column ?= go_columns->get_column( 'INCO1' ).
+      lo_column->set_short_text( 'Incoterm' ).
+      lo_column->set_medium_text( 'Incoterm' ).
+      lo_column->set_long_text( 'Incoterm' ).
+
+      " Incoterms Location
+      lo_column ?= go_columns->get_column( 'INCO2' ).
+      lo_column->set_short_text( 'Inco Loc' ).
+      lo_column->set_medium_text( 'Inco Location' ).
+      lo_column->set_long_text( 'Incoterm Location' ).
+
+      " Payment Terms
+      lo_column ?= go_columns->get_column( 'ZTERM' ).
+      lo_column->set_short_text( 'Payment' ).
+      lo_column->set_medium_text( 'Payment Term' ).
+      lo_column->set_long_text( 'Payment Terms' ).
+
+      " Document Type
+      lo_column ?= go_columns->get_column( 'BSART' ).
+      lo_column->set_short_text( 'Doc Type' ).
+      lo_column->set_medium_text( 'Document Type' ).
+      lo_column->set_long_text( 'Document Type' ).
+
+      " Company Code
+      lo_column ?= go_columns->get_column( 'BUKRS' ).
+      lo_column->set_short_text( 'CoCode' ).
+      lo_column->set_medium_text( 'Company Code' ).
+      lo_column->set_long_text( 'Company Code' ).
+
+      " Purchasing Group
+      lo_column ?= go_columns->get_column( 'EKGRP' ).
+      lo_column->set_short_text( 'Pur Grp' ).
+      lo_column->set_medium_text( 'Purch Group' ).
+      lo_column->set_long_text( 'Purchasing Group' ).
+
+    CATCH cx_salv_not_found.
+      " Column not found - continue
+  ENDTRY.
+ENDFORM.
