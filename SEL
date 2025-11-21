@@ -1,0 +1,33 @@
+*&---------------------------------------------------------------------*
+*& Include          ZMM_B_CONTRACT_MAILSEND_SEL
+*&---------------------------------------------------------------------*
+*& Purpose: Selection Screen Definition
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* SELECTION SCREEN
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+* Contract Number
+SELECT-OPTIONS: s_ebeln FOR ekko-ebeln OBLIGATORY.
+
+* Creation Date
+SELECT-OPTIONS: s_aedat FOR ekko-aedat DEFAULT sy-datum OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------------*
+* SELECTION SCREEN PARAMETERS (Optional)
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+
+PARAMETERS: p_test TYPE flag AS CHECKBOX DEFAULT 'X'.  " Test Mode
+
+SELECTION-SCREEN END OF BLOCK b2.
+
+*----------------------------------------------------------------------*
+* TEXT SYMBOLS (Add in Text Elements)
+*----------------------------------------------------------------------*
+* TEXT-001: Selection Criteria
+* TEXT-002: Options
