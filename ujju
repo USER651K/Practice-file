@@ -1,0 +1,222 @@
+*&---------------------------------------------------------------------*
+*& Include          ZMM_B_CONTRACT_MAILSEND_SCR (ALTERNATIVE SIMPLE)
+*&---------------------------------------------------------------------*
+*& Purpose: Screen Events and Validations - SIMPLE VERSION
+*& Use this version if you have issues with the main version
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  " Add any general selection screen validations here
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_ebeln
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_ebeln.
+  " Validate contract number
+  IF s_ebeln IS INITIAL.
+    MESSAGE 'Contract number is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_aedat
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_aedat.
+  " Validate creation date
+  IF s_aedat IS INITIAL.
+    MESSAGE 'Creation date is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN OUTPUT
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN OUTPUT.
+  " Modify screen attributes if needed
+
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  " Set default values or perform initialization tasks
+
+*----------------------------------------------------------------------*
+* FORM ROUTINES FOR DATA PROCESSING - SIMPLE VERSION
+*----------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form FETCH_DATA - SIMPLE VERSION (Step by Step)
+*&---------------------------------------------------------------------*
+FORM fetch_data.
+  
+  DATA: lt_ekko      TYPE TABLE OF ty_contract,
+        ls_ekko      TYPE ty_contract,
+        lt_ekpo      TYPE STANDARD TABLE OF ekpo,
+        ls_ekpo      TYPE ekpo,
+        lt_lfa1      TYPE STANDARD TABLE OF lfa1,
+        ls_lfa1      TYPE lfa1,
+        lt_makt      TYPE STANDARD TABLE OF makt,
+        ls_makt      TYPE makt,
+        lt_usr_name  TYPE TABLE OF v_usr_name,
+        ls_usr_name  TYPE v_usr_name,
+        lv_count     TYPE i.
+  
+  " Step 1: Fetch header data from EKKO
+  SELECT ebeln
+         ernam
+         aedat
+         lifnr
+         zterm
+         inco1
+         waers
+         bukrs
+         ekorg
+    FROM ekko
+    INTO CORRESPONDING FIELDS OF TABLE lt_ekko
+    WHERE ebeln IN s_ebeln
+      AND aedat IN s_aedat
+      AND bstyp = 'K'.
+  
+  IF sy-subrc <> 0.
+    MESSAGE 'No contracts found. Check if contract number exists and type is K (Contract)' TYPE 'I' DISPLAY LIKE 'E'.
+    RETURN.
+  ENDIF.
+  
+  DESCRIBE TABLE lt_ekko LINES lv_count.
+  WRITE: / 'Step 1: Found', lv_count, 'contract(s) in EKKO'.
+  
+  " Step 2: Fetch item data from EKPO
+  IF lt_ekko IS NOT INITIAL.
+    SELECT *
+      FROM ekpo
+      INTO TABLE lt_ekpo
+      FOR ALL ENTRIES IN lt_ekko
+      WHERE ebeln = lt_ekko-ebeln.
+    
+    IF sy-subrc = 0.
+      DESCRIBE TABLE lt_ekpo LINES lv_count.
+      WRITE: / 'Step 2: Found', lv_count, 'item(s) in EKPO'.
+    ELSE.
+      MESSAGE 'No items found for the contracts' TYPE 'I'.
+      RETURN.
+    ENDIF.
+  ENDIF.
+  
+  " Step 3: Fetch vendor data from LFA1
+  IF lt_ekko IS NOT INITIAL.
+    SELECT *
+      FROM lfa1
+      INTO TABLE lt_lfa1
+      FOR ALL ENTRIES IN lt_ekko
+      WHERE lifnr = lt_ekko-lifnr.
+    
+    IF sy-subrc = 0.
+      DESCRIBE TABLE lt_lfa1 LINES lv_count.
+      WRITE: / 'Step 3: Found', lv_count, 'vendor(s) in LFA1'.
+    ENDIF.
+  ENDIF.
+  
+  " Step 4: Fetch material descriptions from MAKT
+  IF lt_ekpo IS NOT INITIAL.
+    SELECT *
+      FROM makt
+      INTO TABLE lt_makt
+      FOR ALL ENTRIES IN lt_ekpo
+      WHERE matnr = lt_ekpo-matnr
+        AND spras = sy-langu.
+    
+    IF sy-subrc = 0.
+      DESCRIBE TABLE lt_makt LINES lv_count.
+      WRITE: / 'Step 4: Found', lv_count, 'material description(s) in MAKT'.
+    ENDIF.
+  ENDIF.
+  
+  " Step 5: Combine all data
+  LOOP AT lt_ekko INTO ls_ekko.
+    
+    " Find all items for this contract
+    LOOP AT lt_ekpo INTO ls_ekpo WHERE ebeln = ls_ekko-ebeln.
+      
+      CLEAR gs_contract.
+      
+      " Header data
+      gs_contract-ebeln = ls_ekko-ebeln.
+      gs_contract-ernam = ls_ekko-ernam.
+      gs_contract-aedat = ls_ekko-aedat.
+      gs_contract-lifnr = ls_ekko-lifnr.
+      gs_contract-zterm = ls_ekko-zterm.
+      gs_contract-inco1 = ls_ekko-inco1.
+      gs_contract-waers = ls_ekko-waers.
+      gs_contract-bukrs = ls_ekko-bukrs.
+      gs_contract-ekorg = ls_ekko-ekorg.
+      
+      " Item data
+      gs_contract-ebelp = ls_ekpo-ebelp.
+      gs_contract-matnr = ls_ekpo-matnr.
+      gs_contract-ktmng = ls_ekpo-ktmng.
+      gs_contract-meins = ls_ekpo-meins.
+      gs_contract-netpr = ls_ekpo-netpr.
+      gs_contract-brtwr = ls_ekpo-brtwr.
+      
+      " Vendor data
+      READ TABLE lt_lfa1 INTO ls_lfa1 WITH KEY lifnr = ls_ekko-lifnr.
+      IF sy-subrc = 0.
+        gs_contract-vendor_name = ls_lfa1-name1.
+        gs_contract-vendor_country = ls_lfa1-land1.
+      ENDIF.
+      
+      " Material description
+      READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_ekpo-matnr.
+      IF sy-subrc = 0.
+        gs_contract-maktx = ls_makt-maktx.
+      ENDIF.
+      
+      APPEND gs_contract TO gt_contract.
+      
+    ENDLOOP.
+    
+  ENDLOOP.
+  
+  " Step 6: Get creator names (optional - may need authorization)
+  IF gt_contract IS NOT INITIAL.
+    
+    TRY.
+        SELECT * FROM v_usr_name
+          INTO TABLE lt_usr_name
+          FOR ALL ENTRIES IN gt_contract
+          WHERE bname = gt_contract-ernam.
+        
+        IF sy-subrc = 0.
+          LOOP AT gt_contract INTO gs_contract.
+            READ TABLE lt_usr_name INTO ls_usr_name
+              WITH KEY bname = gs_contract-ernam.
+            IF sy-subrc = 0.
+              gs_contract-creator_name = ls_usr_name-name_text.
+              MODIFY gt_contract FROM gs_contract INDEX sy-tabix.
+            ENDIF.
+          ENDLOOP.
+          
+          DESCRIBE TABLE lt_usr_name LINES lv_count.
+          WRITE: / 'Step 5: Found', lv_count, 'user name(s) in V_USR_NAME'.
+        ENDIF.
+        
+      CATCH cx_root.
+        " If V_USR_NAME access fails, continue without names
+        WRITE: / 'Step 5: Could not access V_USR_NAME (authorization issue)'.
+    ENDTRY.
+    
+  ENDIF.
+  
+  gv_count = lines( gt_contract ).
+  
+  IF gv_count > 0.
+    SKIP.
+    WRITE: / '==> SUCCESS: Found', gv_count, 'contract record(s) in total'.
+    SKIP.
+    MESSAGE i001(00) WITH gv_count 'contract record(s) found'.
+  ELSE.
+    MESSAGE 'No data could be combined. Check if contracts have items in EKPO' TYPE 'I' DISPLAY LIKE 'E'.
+  ENDIF.
+
+ENDFORM.
