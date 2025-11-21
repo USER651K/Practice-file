@@ -1,0 +1,318 @@
+*&---------------------------------------------------------------------*
+*& Include          ZMM_B_CONTRACT_MAILSEND_SCR
+*&---------------------------------------------------------------------*
+*& Purpose: Screen Events and Validations
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  " Add any general selection screen validations here
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_ebeln
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_ebeln.
+  " Validate contract number
+  IF s_ebeln IS INITIAL.
+    MESSAGE 'Contract number is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_aedat
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_aedat.
+  " Validate creation date
+  IF s_aedat IS INITIAL.
+    MESSAGE 'Creation date is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN OUTPUT
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN OUTPUT.
+  " Modify screen attributes if needed
+
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  " Set default values or perform initialization tasks
+
+*----------------------------------------------------------------------*
+* FORM ROUTINES FOR DATA PROCESSING
+*----------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form FETCH_DATA
+*&---------------------------------------------------------------------*
+FORM fetch_data.
+  
+  DATA: lt_usr_name TYPE TABLE OF v_usr_name,
+        ls_usr_name TYPE v_usr_name.
+  
+  " Fetch contract data with all required fields
+  SELECT a~ebeln
+         a~ernam
+         a~aedat
+         a~lifnr
+         a~zterm
+         a~inco1
+         a~waers
+         a~bukrs
+         a~ekorg
+         b~ebelp
+         b~matnr
+         b~ktmng
+         b~meins
+         b~netpr
+         b~brtwr
+         c~name1 AS vendor_name
+         c~land1 AS vendor_country
+         d~maktx
+    FROM ekko AS a
+    INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+    LEFT OUTER JOIN lfa1 AS c ON a~lifnr = c~lifnr
+    LEFT OUTER JOIN makt AS d ON b~matnr = d~matnr
+                              AND d~spras = sy-langu
+    INTO CORRESPONDING FIELDS OF TABLE @gt_contract
+    WHERE a~ebeln IN @s_ebeln
+      AND a~aedat IN @s_aedat
+      AND a~bstyp = 'K'.  " K = Contract
+  
+  IF sy-subrc = 0.
+    
+    " Get creator names from V_USR_NAME
+    SELECT * FROM v_usr_name
+      INTO TABLE lt_usr_name
+      FOR ALL ENTRIES IN gt_contract
+      WHERE bname = gt_contract-ernam.
+    
+    " Update contract table with creator names
+    LOOP AT gt_contract INTO gs_contract.
+      READ TABLE lt_usr_name INTO ls_usr_name
+        WITH KEY bname = gs_contract-ernam.
+      IF sy-subrc = 0.
+        gs_contract-creator_name = ls_usr_name-name_text.
+        MODIFY gt_contract FROM gs_contract INDEX sy-tabix.
+      ENDIF.
+    ENDLOOP.
+    
+    gv_count = lines( gt_contract ).
+    MESSAGE i001(00) WITH gv_count 'contract(s) found'.
+    
+  ELSE.
+    MESSAGE 'No contracts found for the given criteria' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form PROCESS_DATA
+*&---------------------------------------------------------------------*
+FORM process_data.
+  
+  DATA: lv_recipient TYPE ad_smtpadr,
+        lv_subject   TYPE so_obj_des,
+        lv_body      TYPE string,
+        lt_body_tab  TYPE TABLE OF solisti1,
+        lv_line      TYPE solisti1.
+  
+  LOOP AT gt_contract INTO gs_contract.
+    
+    " Set status icon
+    gs_contract-status = icon_led_green.
+    
+    " Prepare email subject
+    lv_subject = |Purchase Contract {gs_contract-ebeln} - Auto Notification|.
+    
+    " Prepare detailed email body
+    CLEAR: lv_body, lt_body_tab.
+    
+    CONCATENATE 'Dear Stakeholder,' 
+                INTO lv_body SEPARATED BY space.
+    lv_line-line = lv_body. APPEND lv_line TO lt_body_tab.
+    
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    
+    lv_line-line = 'A new purchase contract has been created with the following details:'.
+    APPEND lv_line TO lt_body_tab.
+    
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    
+    " Contract Header Information
+    CONCATENATE 'Purchase Contract: ' gs_contract-ebeln
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Created by: ' gs_contract-creator_name '(' gs_contract-ernam ')'
+                INTO lv_line-line SEPARATED BY space.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Created on: ' gs_contract-aedat+6(2) '/'
+                               gs_contract-aedat+4(2) '/'
+                               gs_contract-aedat(4)
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    " Vendor Information
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Vendor Name: ' gs_contract-vendor_name
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Vendor Country: ' gs_contract-vendor_country
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    " Material Information
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Material: ' gs_contract-matnr ' - ' gs_contract-maktx
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    DATA: lv_ktmng_char TYPE char20,
+          lv_netpr_char TYPE char20,
+          lv_brtwr_char TYPE char20.
+    
+    WRITE gs_contract-ktmng TO lv_ktmng_char.
+    WRITE gs_contract-netpr TO lv_netpr_char CURRENCY gs_contract-waers.
+    WRITE gs_contract-brtwr TO lv_brtwr_char CURRENCY gs_contract-waers.
+    
+    CONDENSE lv_ktmng_char NO-GAPS.
+    CONDENSE lv_netpr_char NO-GAPS.
+    CONDENSE lv_brtwr_char NO-GAPS.
+    
+    CONCATENATE 'Quantity: ' lv_ktmng_char gs_contract-meins
+                INTO lv_line-line SEPARATED BY space.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Price: ' lv_netpr_char gs_contract-waers
+                INTO lv_line-line SEPARATED BY space.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Total Value: ' lv_brtwr_char gs_contract-waers
+                INTO lv_line-line SEPARATED BY space.
+    APPEND lv_line TO lt_body_tab.
+    
+    " Payment & Delivery Terms
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Payment Term: ' gs_contract-zterm
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    CONCATENATE 'Incoterm: ' gs_contract-inco1
+                INTO lv_line-line.
+    APPEND lv_line TO lt_body_tab.
+    
+    " Footer
+    CLEAR lv_line.
+    lv_line-line = ' '. APPEND lv_line TO lt_body_tab.
+    lv_line-line = 'This is an automated notification.'.
+    APPEND lv_line TO lt_body_tab.
+    lv_line-line = 'Please do not reply to this email.'.
+    APPEND lv_line TO lt_body_tab.
+    
+    " Convert body table to string
+    CLEAR lv_body.
+    LOOP AT lt_body_tab INTO lv_line.
+      CONCATENATE lv_body lv_line-line cl_abap_char_utilities=>newline
+                  INTO lv_body.
+    ENDLOOP.
+    
+    " In test mode, don't send actual emails
+    IF p_test = gc_x.
+      gs_contract-message = 'Test mode - Email not sent'.
+    ELSE.
+      " Call email sending logic here
+      PERFORM send_email USING gs_contract-ebeln
+                               lv_subject
+                               lt_body_tab
+                         CHANGING gs_contract-message.
+    ENDIF.
+    
+    MODIFY gt_contract FROM gs_contract.
+    
+  ENDLOOP.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form SEND_EMAIL
+*&---------------------------------------------------------------------*
+FORM send_email USING    p_contract TYPE ebeln
+                         p_subject  TYPE so_obj_des
+                         pt_body    TYPE solisti1_tab
+                CHANGING p_message  TYPE char100.
+  
+  DATA: lo_send_request TYPE REF TO cl_bcs,
+        lo_document     TYPE REF TO cl_document_bcs,
+        lo_recipient    TYPE REF TO if_recipient_bcs,
+        lo_sender       TYPE REF TO if_sender_bcs,
+        lx_bcs          TYPE REF TO cx_bcs,
+        lv_sent         TYPE flag,
+        lv_email        TYPE ad_smtpadr.
+  
+  TRY.
+      " Create send request
+      lo_send_request = cl_bcs=>create_persistent( ).
+      
+      " Create document with subject and body
+      lo_document = cl_document_bcs=>create_document(
+        i_type    = 'RAW'
+        i_text    = pt_body
+        i_subject = p_subject ).
+      
+      " Add document to send request
+      lo_send_request->set_document( lo_document ).
+      
+      " Add recipient(s) - Configure recipient email here
+      " Option 1: Hard-coded recipient
+      lv_email = 'recipient@company.com'.  " Change this to actual recipient
+      
+      " Option 2: Get recipient from configuration table (implement as needed)
+      " PERFORM get_recipient_email USING p_contract CHANGING lv_email.
+      
+      IF lv_email IS NOT INITIAL.
+        lo_recipient = cl_cam_address_bcs=>create_internet_address( lv_email ).
+        lo_send_request->add_recipient( lo_recipient ).
+        
+        " Set sender (optional)
+        " lo_sender = cl_sapuser_bcs=>create( sy-uname ).
+        " lo_send_request->set_sender( lo_sender ).
+        
+        " Send immediately
+        lo_send_request->set_send_immediately( gc_x ).
+        
+        " Send the email
+        lv_sent = lo_send_request->send( ).
+        
+        IF lv_sent = gc_x.
+          COMMIT WORK.
+          CONCATENATE 'Email sent successfully to' lv_email
+                      INTO p_message SEPARATED BY space.
+        ELSE.
+          ROLLBACK WORK.
+          p_message = 'Email send failed - check configuration'.
+        ENDIF.
+        
+      ELSE.
+        p_message = 'No recipient email configured'.
+      ENDIF.
+      
+    CATCH cx_bcs INTO lx_bcs.
+      ROLLBACK WORK.
+      CONCATENATE 'Email error:' lx_bcs->get_text( )
+                  INTO p_message SEPARATED BY space.
+  ENDTRY.
+
+ENDFORM.
