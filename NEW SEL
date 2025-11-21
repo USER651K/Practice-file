@@ -1,0 +1,17 @@
+*----------------------------------------------------------------------*
+* SELECTION SCREEN
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+* Contract Number
+SELECT-OPTIONS: s_ebeln FOR ekko-ebeln OBLIGATORY.
+
+* Creation Date
+SELECT-OPTIONS: s_aedat FOR ekko-aedat DEFAULT sy-datum OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------------*
+* TEXT SYMBOLS (Add in Text Elements)
+*----------------------------------------------------------------------*
+* TEXT-001: Selection Criteria
