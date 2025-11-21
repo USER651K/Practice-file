@@ -1,0 +1,103 @@
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  " Add any general selection screen validations here
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_ebeln
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_ebeln.
+  " Validate contract number
+  IF s_ebeln IS INITIAL.
+    MESSAGE 'Contract number is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN ON s_aedat
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON s_aedat.
+  " Validate creation date
+  IF s_aedat IS INITIAL.
+    MESSAGE 'Creation date is mandatory' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN OUTPUT
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN OUTPUT.
+  " Modify screen attributes if needed
+
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  " Set default values or perform initialization tasks
+
+*----------------------------------------------------------------------*
+* FORM ROUTINES FOR DATA PROCESSING
+*----------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form FETCH_DATA
+*&---------------------------------------------------------------------*
+FORM fetch_data.
+  
+  DATA: lt_usr_name TYPE TABLE OF v_usr_name,
+        ls_usr_name TYPE v_usr_name.
+  
+  " Fetch contract data with all required fields
+  SELECT a~ebeln
+         a~ernam
+         a~aedat
+         a~lifnr
+         a~zterm
+         a~inco1
+         a~waers
+         a~bukrs
+         a~ekorg
+         b~ebelp
+         b~matnr
+         b~ktmng
+         b~meins
+         b~netpr
+         b~brtwr
+         c~name1 AS vendor_name
+         c~land1 AS vendor_country
+         d~maktx
+    FROM ekko AS a
+    INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+    LEFT OUTER JOIN lfa1 AS c ON a~lifnr = c~lifnr
+    LEFT OUTER JOIN makt AS d ON b~matnr = d~matnr
+                              AND d~spras = @sy-langu
+    INTO CORRESPONDING FIELDS OF TABLE @gt_contract
+    WHERE a~ebeln IN @s_ebeln
+      AND a~aedat IN @s_aedat
+      AND a~bstyp = 'K'.  " K = Contract
+  
+  IF sy-subrc = 0.
+    
+    " Get creator names from V_USR_NAME
+    SELECT * FROM v_usr_name
+      INTO TABLE lt_usr_name
+      FOR ALL ENTRIES IN gt_contract
+      WHERE bname = gt_contract-ernam.
+    
+    " Update contract table with creator names
+    LOOP AT gt_contract INTO gs_contract.
+      READ TABLE lt_usr_name INTO ls_usr_name
+        WITH KEY bname = gs_contract-ernam.
+      IF sy-subrc = 0.
+        gs_contract-creator_name = ls_usr_name-name_text.
+        MODIFY gt_contract FROM gs_contract INDEX sy-tabix.
+      ENDIF.
+    ENDLOOP.
+    
+    gv_count = lines( gt_contract ).
+    MESSAGE i001(00) WITH gv_count 'contract record(s) found'.
+    
+  ELSE.
+    MESSAGE 'No contracts found for the given criteria' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
