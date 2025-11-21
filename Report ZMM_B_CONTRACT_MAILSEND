@@ -1,0 +1,21 @@
+*----------------------------------------------------------------------*
+* INCLUDE declarations
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_top.  " Global Data Declarations
+INCLUDE zmm_b_contract_mailsend_sel.  " Selection Screen
+INCLUDE zmm_b_contract_mailsend_scr.  " Screen Events
+INCLUDE zmm_b_contract_mailsend_alv.  " ALV Display Logic
+
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM fetch_data.
+  PERFORM process_data.
+  PERFORM display_alv.
+
+*----------------------------------------------------------------------*
+* END-OF-SELECTION
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  WRITE: / 'Program execution completed.'.
