@@ -1,0 +1,63 @@
+*&---------------------------------------------------------------------*
+*& Include          ZMM_B_CONTRACT_MAILSEND_TOP
+*&---------------------------------------------------------------------*
+*& Purpose: Global Data Declarations, Types, and Tables
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: ekko,  " Purchasing Document Header
+        ekpo,  " Purchasing Document Item
+        lfa1,  " Vendor Master
+        makt.  " Material Descriptions
+
+*----------------------------------------------------------------------*
+* TYPE DEFINITIONS
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_contract,
+         ebeln      TYPE ekko-ebeln,       " Purchase Contract Number
+         ernam      TYPE ekko-ernam,       " Created by
+         creator_name TYPE name_text,      " Creator First Name from V_USR_NAME
+         aedat      TYPE ekko-aedat,       " Created on (Creation Date)
+         lifnr      TYPE ekko-lifnr,       " Vendor Number
+         vendor_name TYPE lfa1-name1,      " Vendor Name from LFA1
+         vendor_country TYPE lfa1-land1,   " Vendor Country from LFA1
+         ebelp      TYPE ekpo-ebelp,       " Item Number
+         matnr      TYPE ekpo-matnr,       " Material Number
+         maktx      TYPE makt-maktx,       " Material Description from MAKT
+         ktmng      TYPE ekpo-ktmng,       " Quantity (Target Quantity)
+         meins      TYPE ekpo-meins,       " UOM (Unit of Measure)
+         netpr      TYPE ekpo-netpr,       " Price (Net Price)
+         brtwr      TYPE ekpo-brtwr,       " Total Value (Gross Order Value)
+         zterm      TYPE ekko-zterm,       " Payment Term
+         inco1      TYPE ekko-inco1,       " Incoterm
+         waers      TYPE ekko-waers,       " Currency
+         bukrs      TYPE ekko-bukrs,       " Company Code
+         ekorg      TYPE ekko-ekorg,       " Purchasing Organization
+         status     TYPE icon_d,           " Status Icon
+         message    TYPE char100,          " Message
+       END OF ty_contract.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLES
+*----------------------------------------------------------------------*
+DATA: gt_contract TYPE TABLE OF ty_contract,
+      gs_contract TYPE ty_contract.
+
+*----------------------------------------------------------------------*
+* ALV DECLARATIONS
+*----------------------------------------------------------------------*
+DATA: go_alv       TYPE REF TO cl_salv_table,
+      gx_alv_error TYPE REF TO cx_salv_msg.
+
+*----------------------------------------------------------------------*
+* GLOBAL VARIABLES
+*----------------------------------------------------------------------*
+DATA: gv_count TYPE i,
+      gv_error TYPE flag.
+
+*----------------------------------------------------------------------*
+* CONSTANTS
+*----------------------------------------------------------------------*
+CONSTANTS: gc_x TYPE c VALUE 'X'.
