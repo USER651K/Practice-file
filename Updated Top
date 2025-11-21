@@ -1,0 +1,27 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_B_CONTRACT_MAILSEND
+*&---------------------------------------------------------------------*
+*& Purpose: Send mail for contracts based on contract number and date
+*&---------------------------------------------------------------------*
+REPORT zmm_b_contract_mailsend.
+
+*----------------------------------------------------------------------*
+* INCLUDE declarations
+*----------------------------------------------------------------------*
+INCLUDE zmm_b_contract_mailsend_top.  " Global Data Declarations
+INCLUDE zmm_b_contract_mailsend_sel.  " Selection Screen
+INCLUDE zmm_b_contract_mailsend_scr.  " Screen Events
+INCLUDE zmm_b_contract_mailsend_alv.  " ALV Display Logic
+
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM fetch_data.
+  PERFORM display_alv.
+
+*----------------------------------------------------------------------*
+* END-OF-SELECTION
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  " Display completed in ALV
