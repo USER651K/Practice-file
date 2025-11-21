@@ -1,0 +1,203 @@
+
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  DATA: lo_columns TYPE REF TO cl_salv_columns_table,
+        lo_column  TYPE REF TO cl_salv_column_table,
+        lo_functions TYPE REF TO cl_salv_functions_list.
+
+  " Check if data exists
+  IF gt_contract IS INITIAL.
+    MESSAGE 'No data to display' TYPE 'I'.
+    RETURN.
+  ENDIF.
+
+  TRY.
+      " Create ALV object
+      cl_salv_table=>factory(
+        IMPORTING
+          r_salv_table = go_alv
+        CHANGING
+          t_table      = gt_contract ).
+
+      " Get columns object
+      lo_columns = go_alv->get_columns( ).
+      lo_columns->set_optimize( abap_true ).
+
+      " Set column properties - Contract Information
+      TRY.
+          lo_column ?= lo_columns->get_column( 'EBELN' ).
+          lo_column->set_short_text( 'Contract' ).
+          lo_column->set_medium_text( 'Contract No' ).
+          lo_column->set_long_text( 'Purchase Contract Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'ERNAM' ).
+          lo_column->set_short_text( 'User' ).
+          lo_column->set_medium_text( 'Created By' ).
+          lo_column->set_long_text( 'Created By User' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CREATOR_NAME' ).
+          lo_column->set_short_text( 'Name' ).
+          lo_column->set_medium_text( 'Creator Name' ).
+          lo_column->set_long_text( 'Creator Full Name' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'AEDAT' ).
+          lo_column->set_short_text( 'Date' ).
+          lo_column->set_medium_text( 'Create Date' ).
+          lo_column->set_long_text( 'Creation Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Vendor Information
+      TRY.
+          lo_column ?= lo_columns->get_column( 'LIFNR' ).
+          lo_column->set_short_text( 'Vendor' ).
+          lo_column->set_medium_text( 'Vendor No' ).
+          lo_column->set_long_text( 'Vendor Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'VENDOR_NAME' ).
+          lo_column->set_short_text( 'Vend.Name' ).
+          lo_column->set_medium_text( 'Vendor Name' ).
+          lo_column->set_long_text( 'Vendor Name' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'VENDOR_COUNTRY' ).
+          lo_column->set_short_text( 'Country' ).
+          lo_column->set_medium_text( 'Vendor Ctry' ).
+          lo_column->set_long_text( 'Vendor Country' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Material Information
+      TRY.
+          lo_column ?= lo_columns->get_column( 'EBELP' ).
+          lo_column->set_short_text( 'Item' ).
+          lo_column->set_medium_text( 'Item No' ).
+          lo_column->set_long_text( 'Item Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'MATNR' ).
+          lo_column->set_short_text( 'Material' ).
+          lo_column->set_medium_text( 'Material' ).
+          lo_column->set_long_text( 'Material Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'MAKTX' ).
+          lo_column->set_short_text( 'Desc' ).
+          lo_column->set_medium_text( 'Material Desc' ).
+          lo_column->set_long_text( 'Material Description' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'KTMNG' ).
+          lo_column->set_short_text( 'Quantity' ).
+          lo_column->set_medium_text( 'Quantity' ).
+          lo_column->set_long_text( 'Target Quantity' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'MEINS' ).
+          lo_column->set_short_text( 'UOM' ).
+          lo_column->set_medium_text( 'UOM' ).
+          lo_column->set_long_text( 'Unit of Measure' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'NETPR' ).
+          lo_column->set_short_text( 'Price' ).
+          lo_column->set_medium_text( 'Net Price' ).
+          lo_column->set_long_text( 'Net Price' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BRTWR' ).
+          lo_column->set_short_text( 'Value' ).
+          lo_column->set_medium_text( 'Total Value' ).
+          lo_column->set_long_text( 'Gross Order Value' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment and Delivery Terms
+      TRY.
+          lo_column ?= lo_columns->get_column( 'ZTERM' ).
+          lo_column->set_short_text( 'PayTerm' ).
+          lo_column->set_medium_text( 'Payment Term' ).
+          lo_column->set_long_text( 'Payment Term' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'INCO1' ).
+          lo_column->set_short_text( 'Incoterm' ).
+          lo_column->set_medium_text( 'Incoterm' ).
+          lo_column->set_long_text( 'Incoterm Part 1' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'WAERS' ).
+          lo_column->set_short_text( 'Curr' ).
+          lo_column->set_medium_text( 'Currency' ).
+          lo_column->set_long_text( 'Currency' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Organization
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BUKRS' ).
+          lo_column->set_short_text( 'Co.Code' ).
+          lo_column->set_medium_text( 'Company Code' ).
+          lo_column->set_long_text( 'Company Code' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      TRY.
+          lo_column ?= lo_columns->get_column( 'EKORG' ).
+          lo_column->set_short_text( 'Purch Org' ).
+          lo_column->set_medium_text( 'Purch. Org' ).
+          lo_column->set_long_text( 'Purchasing Organization' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Enable all standard functions
+      lo_functions = go_alv->get_functions( ).
+      lo_functions->set_all( abap_true ).
+
+      " Set display settings
+      DATA: lo_display TYPE REF TO cl_salv_display_settings.
+      lo_display = go_alv->get_display_settings( ).
+      lo_display->set_striped_pattern( abap_true ).
+      lo_display->set_list_header( 'Purchase Contract Display Report' ).
+
+      " Display the ALV
+      go_alv->display( ).
+
+    CATCH cx_salv_msg INTO gx_alv_error.
+      MESSAGE gx_alv_error TYPE 'I'.
+  ENDTRY.
+
+ENDFORM.
