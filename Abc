@@ -1,0 +1,71 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_TOP
+*&---------------------------------------------------------------------*
+*& Global Data Declarations
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: bsik,
+        zp2pttruck.
+
+*----------------------------------------------------------------------*
+* Selection Screen Criteria Structure
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF gty_sel,
+         zp2pdepa    TYPE zp2pttruck-zp2pdepa,    "VENDOR
+         zp2pdemandi TYPE zp2pttruck-zp2pdemandi, "Mandi
+         bukrs       TYPE bsik-bukrs,             "Company code
+         destplant   TYPE zp2pttruck-destplant,   "Bus. Area
+         budat       TYPE bsik-budat,             "Posting date
+         lifnr       TYPE bsik-lifnr,             "vendor code
+       END OF gty_sel.
+
+DATA: gs_sel TYPE gty_sel.
+
+*----------------------------------------------------------------------*
+* TYPE DEFINITIONS
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_credit,
+         bukrs        TYPE bsik-bukrs,             "Company Code
+         zp2pdemandi  TYPE zp2pttruck-zp2pdemandi, "Mandi
+         lifnr        TYPE bsik-lifnr,             "Vendor Code
+         vendor_name  TYPE lfa1-name1,             "Vendor Name
+         gjahr        TYPE bsik-gjahr,             "Year
+         belnr        TYPE bsik-belnr,             "Document No.
+         buzei        TYPE bsik-buzei,             "Line Item
+         budat        TYPE bsik-budat,             "Posting Date
+         bldat        TYPE bsik-bldat,             "Document Date
+         gsber        TYPE bsik-gsber,             "Business Area
+         waers        TYPE bsik-waers,             "Currency
+         wrbtr        TYPE bsik-wrbtr,             "Amt. in Doc. Curr
+         skfbt        TYPE bsik-skfbt,             "CD Base
+         zfbdt        TYPE bsik-zfbdt,             "Baseline Date
+         rebzg        TYPE bsik-rebzg,             "Invoice Reference
+         rebzj        TYPE bsik-rebzj,             "Fiscal Year
+         rebzz        TYPE bsik-rebzz,             "Line Item
+         zfbdt_days   TYPE sy-datum,               "No. of Days
+       END OF ty_credit.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLES
+*----------------------------------------------------------------------*
+DATA: gt_credit TYPE TABLE OF ty_credit,
+      gs_credit TYPE ty_credit.
+
+*----------------------------------------------------------------------*
+* ALV DECLARATIONS
+*----------------------------------------------------------------------*
+DATA: go_alv       TYPE REF TO cl_salv_table,
+      gx_alv_error TYPE REF TO cx_salv_msg.
+
+*----------------------------------------------------------------------*
+* GLOBAL VARIABLES
+*----------------------------------------------------------------------*
+DATA: gv_count TYPE i.
+
+*----------------------------------------------------------------------*
+* CONSTANTS
+*----------------------------------------------------------------------*
+CONSTANTS: gc_x TYPE c VALUE 'X'.
