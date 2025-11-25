@@ -1,0 +1,100 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_SCR
+*&---------------------------------------------------------------------*
+*& Screen Events
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form fetch_data
+*&---------------------------------------------------------------------*
+*& Fetch data from BSIK table
+*&---------------------------------------------------------------------*
+FORM fetch_data.
+
+  " Local data declarations
+  DATA: lt_bsik_temp TYPE STANDARD TABLE OF bsik,
+        ls_bsik_temp TYPE bsik,
+        ls_bkpf      TYPE bkpf,
+        lv_orig_blart TYPE bkpf-blart,
+        lv_vendor_name TYPE lfa1-name1,
+        lv_mandi      TYPE zp2pttruck-zp2pdemandi.
+
+  " Select data from BSIK (Vendor Open Items)
+  SELECT bukrs lifnr gjahr belnr buzei budat bldat gsber waers
+         wrbtr skfbt zfbdt rebzg rebzj rebzz shkzg blart
+    FROM bsik
+    INTO TABLE lt_bsik_temp
+    WHERE bukrs IN s_bukrs
+      AND lifnr IN s_zp2pde     "Corrected: Using correct vendor range
+      AND budat IN s_budat
+      AND shkzg = 'H'           "Credit indicator
+      AND blart IN ('RE', 'KR', 'AB').  "Invoice, Credit Memo, Down Payment
+
+  IF sy-subrc = 0.
+    LOOP AT lt_bsik_temp INTO ls_bsik_temp.
+
+      CLEAR: lv_orig_blart, lv_vendor_name, lv_mandi.
+
+      " Special handling for AB (Down Payment) documents
+      IF ls_bsik_temp-blart = 'AB'.
+        " Fetch original document type from BKPF
+        SELECT SINGLE blart
+          FROM bkpf
+          INTO lv_orig_blart
+          WHERE bukrs = ls_bsik_temp-bukrs
+            AND belnr = ls_bsik_temp-rebzg
+            AND gjahr = ls_bsik_temp-rebzj.
+
+        " Skip if original document is not RE or KR
+        IF sy-subrc <> 0 OR ( lv_orig_blart <> 'RE' AND lv_orig_blart <> 'KR' ).
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
+      " Fetch vendor name from LFA1
+      SELECT SINGLE name1
+        FROM lfa1
+        INTO lv_vendor_name
+        WHERE lifnr = ls_bsik_temp-lifnr.
+
+      " Fetch Mandi from ZP2PTTRUCK
+      " Customize this join logic based on your table structure
+      SELECT SINGLE zp2pdemandi
+        FROM zp2pttruck
+        INTO lv_mandi
+        WHERE zp2pdepa = ls_bsik_temp-lifnr.  "Adjust join condition as needed
+
+      " Build internal table
+      CLEAR gs_credit.
+      gs_credit-bukrs        = ls_bsik_temp-bukrs.
+      gs_credit-zp2pdemandi  = lv_mandi.
+      gs_credit-lifnr        = ls_bsik_temp-lifnr.
+      gs_credit-vendor_name  = lv_vendor_name.
+      gs_credit-gjahr        = ls_bsik_temp-gjahr.
+      gs_credit-belnr        = ls_bsik_temp-belnr.
+      gs_credit-buzei        = ls_bsik_temp-buzei.
+      gs_credit-budat        = ls_bsik_temp-budat.
+      gs_credit-bldat        = ls_bsik_temp-bldat.
+      gs_credit-gsber        = ls_bsik_temp-gsber.
+      gs_credit-waers        = ls_bsik_temp-waers.
+      gs_credit-wrbtr        = ls_bsik_temp-wrbtr.
+      gs_credit-skfbt        = ls_bsik_temp-skfbt.
+      gs_credit-zfbdt        = ls_bsik_temp-zfbdt.
+      gs_credit-rebzg        = ls_bsik_temp-rebzg.
+      gs_credit-rebzj        = ls_bsik_temp-rebzj.
+      gs_credit-rebzz        = ls_bsik_temp-rebzz.
+
+      " Calculate No. of Days
+      gs_credit-zfbdt_days = sy-datum - ls_bsik_temp-zfbdt.
+
+      APPEND gs_credit TO gt_credit.
+
+    ENDLOOP.
+  ENDIF.
+
+  " Display message if no data found
+  IF gt_credit IS INITIAL.
+    MESSAGE 'No data found for the given selection criteria' TYPE 'I'.
+  ENDIF.
+
+ENDFORM.
