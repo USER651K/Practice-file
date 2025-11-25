@@ -1,0 +1,15 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_SEL
+*&---------------------------------------------------------------------*
+*& Selection Screen
+*&---------------------------------------------------------------------*
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-001.
+
+  SELECT-OPTIONS: s_zp2pde FOR gs_sel-zp2pdepa,      "VENDOR
+                  s_zp2pdem FOR gs_sel-zp2pdemandi,  "Mandi
+                  s_bukrs   FOR gs_sel-bukrs,        "Company code
+                  s_destpl  FOR gs_sel-destplant,    "Bus. Area
+                  s_budat   FOR gs_sel-budat.        "Posting date
+
+SELECTION-SCREEN END OF BLOCK b2.
