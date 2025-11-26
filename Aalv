@@ -1,0 +1,339 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_ALV
+*&---------------------------------------------------------------------*
+*& ALV Display Logic
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form display_alv
+*&---------------------------------------------------------------------*
+*& Display ALV Grid with all fields
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  DATA: lo_columns TYPE REF TO cl_salv_columns_table,
+        lo_column  TYPE REF TO cl_salv_column_table,
+        lo_display TYPE REF TO cl_salv_display_settings,
+        lo_functions TYPE REF TO cl_salv_functions_list.
+
+  TRY.
+      " Create ALV object
+      cl_salv_table=>factory(
+        IMPORTING
+          r_salv_table = go_alv
+        CHANGING
+          t_table      = gt_credit ).
+
+      " Get columns object
+      lo_columns = go_alv->get_columns( ).
+      lo_columns->set_optimize( abap_true ).
+
+      " Set column properties for all fields
+      
+      " Checkmark field
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CHECKMARK' ).
+          lo_column->set_short_text( 'Check' ).
+          lo_column->set_medium_text( 'Check Mark' ).
+          lo_column->set_long_text( 'Check Mark' ).
+          lo_column->set_cell_type( if_salv_c_cell_type=>checkbox_hotspot ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Manual Edit field
+      TRY.
+          lo_column ?= lo_columns->get_column( 'MANUAL_EDIT' ).
+          lo_column->set_short_text( 'ManEdit' ).
+          lo_column->set_medium_text( 'Manual Edit' ).
+          lo_column->set_long_text( 'Manual Edit' ).
+          lo_column->set_cell_type( if_salv_c_cell_type=>checkbox_hotspot ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment Reason Code
+      TRY.
+          lo_column ?= lo_columns->get_column( 'PAYMENT_REASON' ).
+          lo_column->set_short_text( 'Pmnt Rsn' ).
+          lo_column->set_medium_text( 'Payment Reason' ).
+          lo_column->set_long_text( 'Payment Reason Code' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment Term
+      TRY.
+          lo_column ?= lo_columns->get_column( 'PAYMENT_TERM' ).
+          lo_column->set_short_text( 'Pmnt Term' ).
+          lo_column->set_medium_text( 'Payment Term' ).
+          lo_column->set_long_text( 'Payment Term' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Company Code
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BUKRS' ).
+          lo_column->set_short_text( 'Co.Code' ).
+          lo_column->set_medium_text( 'Company Code' ).
+          lo_column->set_long_text( 'Company Code' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Mandi
+      TRY.
+          lo_column ?= lo_columns->get_column( 'ZP2PDEMANDI' ).
+          lo_column->set_short_text( 'Mandi' ).
+          lo_column->set_medium_text( 'Mandi' ).
+          lo_column->set_long_text( 'Mandi' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Vendor Code
+      TRY.
+          lo_column ?= lo_columns->get_column( 'LIFNR' ).
+          lo_column->set_short_text( 'Vendor' ).
+          lo_column->set_medium_text( 'Vendor Code' ).
+          lo_column->set_long_text( 'Vendor Code' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Vendor Name
+      TRY.
+          lo_column ?= lo_columns->get_column( 'VENDOR_NAME' ).
+          lo_column->set_short_text( 'Vend.Name' ).
+          lo_column->set_medium_text( 'Vendor Name' ).
+          lo_column->set_long_text( 'Vendor Name' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Fiscal Year
+      TRY.
+          lo_column ?= lo_columns->get_column( 'GJAHR' ).
+          lo_column->set_short_text( 'Year' ).
+          lo_column->set_medium_text( 'Fiscal Year' ).
+          lo_column->set_long_text( 'Fiscal Year' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Document Number
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BELNR' ).
+          lo_column->set_short_text( 'Doc.No.' ).
+          lo_column->set_medium_text( 'Document Number' ).
+          lo_column->set_long_text( 'Document Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Line Item
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BUZEI' ).
+          lo_column->set_short_text( 'Item' ).
+          lo_column->set_medium_text( 'Line Item' ).
+          lo_column->set_long_text( 'Line Item' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Posting Date
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BUDAT' ).
+          lo_column->set_short_text( 'Pst.Date' ).
+          lo_column->set_medium_text( 'Posting Date' ).
+          lo_column->set_long_text( 'Posting Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Document Date
+      TRY.
+          lo_column ?= lo_columns->get_column( 'BLDAT' ).
+          lo_column->set_short_text( 'Doc.Date' ).
+          lo_column->set_medium_text( 'Document Date' ).
+          lo_column->set_long_text( 'Document Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Business Area
+      TRY.
+          lo_column ?= lo_columns->get_column( 'GSBER' ).
+          lo_column->set_short_text( 'Bus.Area' ).
+          lo_column->set_medium_text( 'Business Area' ).
+          lo_column->set_long_text( 'Business Area' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Currency
+      TRY.
+          lo_column ?= lo_columns->get_column( 'WAERS' ).
+          lo_column->set_short_text( 'Curr.' ).
+          lo_column->set_medium_text( 'Currency' ).
+          lo_column->set_long_text( 'Currency' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Document Amount
+      TRY.
+          lo_column ?= lo_columns->get_column( 'WRBTR' ).
+          lo_column->set_short_text( 'Doc.Amt' ).
+          lo_column->set_medium_text( 'Document Amount' ).
+          lo_column->set_long_text( 'Amount in Document Currency' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " CD Base
+      TRY.
+          lo_column ?= lo_columns->get_column( 'SKFBT' ).
+          lo_column->set_short_text( 'CD Base' ).
+          lo_column->set_medium_text( 'CD Base' ).
+          lo_column->set_long_text( 'Cash Discount Base' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment Amount
+      TRY.
+          lo_column ?= lo_columns->get_column( 'PAYMENT_AMT' ).
+          lo_column->set_short_text( 'Pmnt Amt' ).
+          lo_column->set_medium_text( 'Payment Amount' ).
+          lo_column->set_long_text( 'Payment Amount' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " CD Level 1 Days
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CD_LEVEL1_DAYS' ).
+          lo_column->set_short_text( 'CD1 Days' ).
+          lo_column->set_medium_text( 'CD Level 1 Days' ).
+          lo_column->set_long_text( 'Cash Discount Level 1 (Days)' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " CD Level 1 %
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CD_LEVEL1_PCT' ).
+          lo_column->set_short_text( 'CD1 %' ).
+          lo_column->set_medium_text( 'CD Level 1 %' ).
+          lo_column->set_long_text( 'Cash Discount Level 1 (%)' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " CD Level 2 Days
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CD_LEVEL2_DAYS' ).
+          lo_column->set_short_text( 'CD2 Days' ).
+          lo_column->set_medium_text( 'CD Level 2 Days' ).
+          lo_column->set_long_text( 'Cash Discount Level 2 (Days)' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " CD Level 2 %
+      TRY.
+          lo_column ?= lo_columns->get_column( 'CD_LEVEL2_PCT' ).
+          lo_column->set_short_text( 'CD2 %' ).
+          lo_column->set_medium_text( 'CD Level 2 %' ).
+          lo_column->set_long_text( 'Cash Discount Level 2 (%)' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Baseline Date
+      TRY.
+          lo_column ?= lo_columns->get_column( 'ZFBDT' ).
+          lo_column->set_short_text( 'Base Date' ).
+          lo_column->set_medium_text( 'Baseline Date' ).
+          lo_column->set_long_text( 'Baseline Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment Due Date
+      TRY.
+          lo_column ?= lo_columns->get_column( 'PAYMENT_DUE_DATE' ).
+          lo_column->set_short_text( 'Due Date' ).
+          lo_column->set_medium_text( 'Payment Due Date' ).
+          lo_column->set_long_text( 'Payment Due Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Payment Date
+      TRY.
+          lo_column ?= lo_columns->get_column( 'PAYMENT_DATE' ).
+          lo_column->set_short_text( 'Pmnt Date' ).
+          lo_column->set_medium_text( 'Payment Date' ).
+          lo_column->set_long_text( 'Payment Date' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Number of Days
+      TRY.
+          lo_column ?= lo_columns->get_column( 'ZFBDT_DAYS' ).
+          lo_column->set_short_text( 'Days' ).
+          lo_column->set_medium_text( 'No. of Days' ).
+          lo_column->set_long_text( 'Number of Days' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Applicable CD %
+      TRY.
+          lo_column ?= lo_columns->get_column( 'APPLICABLE_CD_PCT' ).
+          lo_column->set_short_text( 'Appl.CD%' ).
+          lo_column->set_medium_text( 'Applicable CD %' ).
+          lo_column->set_long_text( 'Applicable Cash Discount %' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Applicable CD Amount
+      TRY.
+          lo_column ?= lo_columns->get_column( 'APPLICABLE_CD_AMT' ).
+          lo_column->set_short_text( 'Appl.CD' ).
+          lo_column->set_medium_text( 'Applicable CD Amt' ).
+          lo_column->set_long_text( 'Applicable Cash Discount Amount' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Invoice Reference
+      TRY.
+          lo_column ?= lo_columns->get_column( 'REBZG' ).
+          lo_column->set_short_text( 'Inv.Ref' ).
+          lo_column->set_medium_text( 'Invoice Reference' ).
+          lo_column->set_long_text( 'Invoice Reference' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Reference Fiscal Year
+      TRY.
+          lo_column ?= lo_columns->get_column( 'REBZJ' ).
+          lo_column->set_short_text( 'Ref.Year' ).
+          lo_column->set_medium_text( 'Reference Year' ).
+          lo_column->set_long_text( 'Reference Fiscal Year' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Reference Line Item
+      TRY.
+          lo_column ?= lo_columns->get_column( 'REBZZ' ).
+          lo_column->set_short_text( 'Ref.Item' ).
+          lo_column->set_medium_text( 'Reference Item' ).
+          lo_column->set_long_text( 'Reference Line Item' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Debit Note Number
+      TRY.
+          lo_column ?= lo_columns->get_column( 'DEBIT_NOTE_NO' ).
+          lo_column->set_short_text( 'Debit No.' ).
+          lo_column->set_medium_text( 'Debit Note No' ).
+          lo_column->set_long_text( 'Debit Note Number' ).
+        CATCH cx_salv_not_found.
+      ENDTRY.
+
+      " Enable standard functions
+      lo_functions = go_alv->get_functions( ).
+      lo_functions->set_all( abap_true ).
+
+      " Set display settings
+      lo_display = go_alv->get_display_settings( ).
+      lo_display->set_striped_pattern( abap_true ).
+      lo_display->set_list_header( 'Vendor Credit Note Report - Complete View' ).
+
+      " Display ALV
+      go_alv->display( ).
+
+    CATCH cx_salv_msg INTO gx_alv_error.
+      MESSAGE gx_alv_error TYPE 'I'.
+  ENDTRY.
+
+ENDFORM.
