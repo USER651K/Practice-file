@@ -1,0 +1,100 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_TOP
+*&---------------------------------------------------------------------*
+*& Global Data Declarations
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: bsik,
+        zp2pttruck.
+
+*----------------------------------------------------------------------*
+* Selection Screen Criteria Structure
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF gty_sel,
+         zp2pdepa    TYPE zp2pttruck-zp2pdepa,    "VENDOR
+         zp2pdemandi TYPE zp2pttruck-zp2pdemandi, "Mandi
+         bukrs       TYPE bsik-bukrs,             "Company code
+         destplant   TYPE zp2pttruck-destplant,   "Bus. Area
+         budat       TYPE bsik-budat,             "Posting date
+         lifnr       TYPE bsik-lifnr,             "vendor code
+       END OF gty_sel.
+
+DATA: gs_sel TYPE gty_sel.
+
+*----------------------------------------------------------------------*
+* TYPE DEFINITIONS
+*----------------------------------------------------------------------*
+TYPES: BEGIN OF ty_credit,
+         " Checkboxes
+         checkmark    TYPE char1,                   "Check Mark (editable)
+         manual_edit  TYPE char1,                   "Manual Edit (editable)
+         
+         " Payment Details
+         payment_reason TYPE bseg-rstgr,            "Payment Reason Code
+         payment_term TYPE bsik-zterm,              "Payment Term
+         
+         " Basic Document Info
+         bukrs        TYPE bsik-bukrs,              "Company Code
+         zp2pdemandi  TYPE zp2pttruck-zp2pdemandi,  "Mandi
+         lifnr        TYPE bsik-lifnr,              "Vendor Code
+         vendor_name  TYPE lfa1-name1,              "Vendor Name
+         gjahr        TYPE bsik-gjahr,              "Year
+         belnr        TYPE bsik-belnr,              "Document No.
+         buzei        TYPE bsik-buzei,              "Line Item
+         budat        TYPE bsik-budat,              "Posting Date
+         bldat        TYPE bsik-bldat,              "Document Date
+         gsber        TYPE bsik-gsber,              "Business Area
+         waers        TYPE bsik-waers,              "Currency
+         
+         " Amount Fields
+         wrbtr        TYPE bsik-wrbtr,              "Amt. in Doc. Curr
+         skfbt        TYPE bsik-skfbt,              "CD Base
+         payment_amt  TYPE bsik-wrbtr,              "Payment Amount
+         
+         " Cash Discount Levels
+         cd_level1_days TYPE bsik-zbd1t,            "CD Level 1 (Days)
+         cd_level1_pct  TYPE bsik-zbd1p,            "CD Level 1 (%)
+         cd_level2_days TYPE bsik-zbd2t,            "CD Level 2 (Days)
+         cd_level2_pct  TYPE bsik-zbd2p,            "CD Level 2 (%)
+         
+         " Date Fields
+         zfbdt        TYPE bsik-zfbdt,              "Baseline Date
+         payment_due_date TYPE bsik-zfbdt,          "Payment Due Date (calculated)
+         payment_date TYPE bsik-augdt,              "Payment Date (clearing date)
+         zfbdt_days   TYPE i,                       "No. of Days
+         
+         " Calculated CD Fields
+         applicable_cd_pct TYPE p DECIMALS 3,       "Applicable CD %
+         applicable_cd_amt TYPE bsik-wrbtr,         "Applicable CD Amount
+         
+         " Reference Fields
+         rebzg        TYPE bsik-rebzg,              "Invoice Reference
+         rebzj        TYPE bsik-rebzj,              "Fiscal Year
+         rebzz        TYPE bsik-rebzz,              "Line Item
+         debit_note_no TYPE bsik-rebzg,             "Debit Note No
+       END OF ty_credit.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLES
+*----------------------------------------------------------------------*
+DATA: gt_credit TYPE TABLE OF ty_credit,
+      gs_credit TYPE ty_credit.
+
+*----------------------------------------------------------------------*
+* ALV DECLARATIONS
+*----------------------------------------------------------------------*
+DATA: go_alv       TYPE REF TO cl_salv_table,
+      gx_alv_error TYPE REF TO cx_salv_msg.
+
+*----------------------------------------------------------------------*
+* GLOBAL VARIABLES
+*----------------------------------------------------------------------*
+DATA: gv_count TYPE i.
+
+*----------------------------------------------------------------------*
+* CONSTANTS
+*----------------------------------------------------------------------*
+CONSTANTS: gc_x TYPE c VALUE 'X'.
