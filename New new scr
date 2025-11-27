@@ -6,15 +6,7 @@
 
 FORM fetch_and_process_data.
 
-  DATA: lt_lfa1  TYPE STANDARD TABLE OF lfa1,
-        lt_mandi TYPE STANDARD TABLE OF zp2pttruck,
-        lt_bseg  TYPE STANDARD TABLE OF bseg,
-        lt_bkpf  TYPE STANDARD TABLE OF bkpf,
-        ls_lfa1  TYPE lfa1,
-        ls_mandi TYPE zp2pttruck,
-        ls_bseg_data TYPE bseg,
-        ls_bkpf  TYPE bkpf,
-        lv_orig_blart TYPE bkpf-blart,
+  DATA: lv_orig_blart TYPE bkpf-blart,
         lv_vendor_name TYPE lfa1-name1,
         lv_mandi TYPE zp2pttruck-zp2pdemandi,
         lv_payment_reason TYPE bseg-rstgr,
@@ -174,16 +166,8 @@ FORM fetch_and_process_data.
     CLEAR gs_credit.
 
     " Checkboxes (initialized as empty)
-    gs_credit-checkbox1 = ''.
-    gs_credit-checkbox2 = ''.
-    gs_credit-checkbox3 = ''.
-    gs_credit-checkbox4 = ''.
-    gs_credit-checkbox5 = ''.
-    gs_credit-checkbox6 = ''.
-    gs_credit-checkbox7 = ''.
-    gs_credit-checkbox8 = ''.
-    gs_credit-checkbox9 = ''.
-    gs_credit-checkbox10 = ''.
+    gs_credit-checkmark = ''.
+    gs_credit-manual_edit = ''.
 
     " Payment Details
     gs_credit-payment_reason = lv_payment_reason.
@@ -217,7 +201,7 @@ FORM fetch_and_process_data.
     gs_credit-rebzg = ls_bsik_temp-rebzg.
     gs_credit-rebzj = ls_bsik_temp-rebzj.
     gs_credit-rebzz = ls_bsik_temp-rebzz.
-    gs_credit-debit_note_no = ls_bsik_temp-rebzg.  "Using reference document as debit note
+    gs_credit-debit_note_no = ls_bsik_temp-rebzg.
 
     " Master Data Fields
     gs_credit-bukrs       = ls_bsik_temp-bukrs.
