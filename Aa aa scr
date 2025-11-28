@@ -1,0 +1,289 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFIVENDCD_ALV
+*&---------------------------------------------------------------------*
+*& ALV Display Logic with Editable Checkbox and Conditional Editing
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form display_alv_output
+*&---------------------------------------------------------------------*
+FORM display_alv_output.
+
+  DATA: lt_fieldcat TYPE lvc_t_fcat,
+        ls_layout   TYPE lvc_s_layo,
+        ls_variant  TYPE disvariant.
+
+  " Build field catalog
+  PERFORM build_fieldcat CHANGING lt_fieldcat.
+
+  " Set layout
+  ls_layout-zebra      = 'X'.
+  ls_layout-cwidth_opt = 'X'.
+  ls_layout-sel_mode   = 'A'.
+  ls_layout-edit       = 'X'.  " Enable editing
+  ls_layout-stylefname = 'CELLTAB'.  " Enable cell-level styling
+
+  " Set variant
+  ls_variant-report = sy-repid.
+
+  " Create container and ALV grid
+  IF go_container IS INITIAL.
+    CREATE OBJECT go_container
+      EXPORTING
+        container_name = 'ALVCONTAINER'.
+
+    CREATE OBJECT go_alv_grid
+      EXPORTING
+        i_parent = go_container.
+
+    " Register events
+    PERFORM register_events.
+
+    " Display ALV
+    CALL METHOD go_alv_grid->set_table_for_first_display
+      EXPORTING
+        is_layout       = ls_layout
+        i_save          = 'A'
+        is_variant      = ls_variant
+      CHANGING
+        it_outtab       = gt_credit
+        it_fieldcatalog = lt_fieldcat.
+
+  ELSE.
+    " Refresh display
+    CALL METHOD go_alv_grid->refresh_table_display.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form build_fieldcat
+*&---------------------------------------------------------------------*
+FORM build_fieldcat CHANGING pt_fieldcat TYPE lvc_t_fcat.
+
+  DATA: ls_fcat TYPE lvc_s_fcat.
+
+  CLEAR pt_fieldcat.
+
+  " Checkboxes - Make them EDITABLE!
+  PERFORM add_field USING 'CHECKMARK' 'Check' 'X' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  
+  PERFORM add_field USING 'MANUAL_EDIT' 'Manual Edit' 'X' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Payment Details
+  PERFORM add_field USING 'PAYMENT_REASON' 'Payment Reason' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'PAYMENT_TERM' 'Payment Term' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  
+  " Payment Amount - Conditionally editable
+  CLEAR ls_fcat.
+  ls_fcat-fieldname  = 'PAYMENT_AMT'.
+  ls_fcat-scrtext_m  = 'Payment Amount'.
+  ls_fcat-scrtext_l  = 'Payment Amount'.
+  ls_fcat-scrtext_s  = 'Pay Amt'.
+  ls_fcat-coltext    = 'Payment Amount'.
+  ls_fcat-datatype   = 'CURR'.
+  ls_fcat-cfieldname = 'WAERS'.
+  ls_fcat-edit       = 'X'.  " Enable editing (controlled by cell style)
+  APPEND ls_fcat TO pt_fieldcat.
+
+  " Cash Discount Fields
+  PERFORM add_field USING 'CD_LEVEL1_DAYS' 'CD1 Days' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'CD_LEVEL1_PCT' 'CD1 %' '' '' 'PERC' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'CD_LEVEL2_DAYS' 'CD2 Days' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'CD_LEVEL2_PCT' 'CD2 %' '' '' 'PERC' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'APPLICABLE_CD_PCT' 'Applicable CD %' '' '' 'PERC' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'APPLICABLE_CD_AMT' 'Applicable CD Amt' '' '' 'CURR' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Date Fields
+  PERFORM add_field USING 'ZFBDT' 'Baseline Date' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'ZFBDT_DAYS' 'Days' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'PAYMENT_DUE_DATE' 'Due Date' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'PAYMENT_DATE' 'Payment Date' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Reference Fields
+  PERFORM add_field USING 'REBZG' 'Reference Doc' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'REBZJ' 'Ref Year' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'REBZZ' 'Ref Line' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'DEBIT_NOTE_NO' 'Debit Note' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Master Data
+  PERFORM add_field USING 'BUKRS' 'Co Code' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'ZP2PDEMANDI' 'Mandi' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'LIFNR' 'Vendor' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'VENDOR_NAME' 'Vendor Name' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Document Info
+  PERFORM add_field USING 'GJAHR' 'Year' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'BELNR' 'Document' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'BUZEI' 'Line' '' 'X' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'BUDAT' 'Posting Date' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'BLDAT' 'Doc Date' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'GSBER' 'Bus Area' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+  " Amount Fields
+  PERFORM add_field USING 'WAERS' 'Currency' '' '' '' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'WRBTR' 'Amount' '' '' 'CURR' 
+                    CHANGING ls_fcat pt_fieldcat.
+  PERFORM add_field USING 'SKFBT' 'Discount Base' '' '' 'CURR' 
+                    CHANGING ls_fcat pt_fieldcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form add_field
+*&---------------------------------------------------------------------*
+FORM add_field USING p_fieldname TYPE lvc_fname
+                     p_text      TYPE scrtext_m
+                     p_checkbox  TYPE char1
+                     p_key       TYPE char1
+                     p_datatype  TYPE char4
+               CHANGING ps_fcat TYPE lvc_s_fcat
+                        pt_fcat TYPE lvc_t_fcat.
+
+  CLEAR ps_fcat.
+  ps_fcat-fieldname = p_fieldname.
+  ps_fcat-scrtext_m = p_text.
+  ps_fcat-scrtext_l = p_text.
+  ps_fcat-scrtext_s = p_text.
+  ps_fcat-coltext   = p_text.
+  
+  IF p_checkbox = 'X'.
+    ps_fcat-checkbox = 'X'.
+    ps_fcat-edit     = 'X'.  " Make checkboxes editable
+  ENDIF.
+
+  IF p_key = 'X'.
+    ps_fcat-key = 'X'.
+  ENDIF.
+
+  CASE p_datatype.
+    WHEN 'CURR'.
+      ps_fcat-datatype = 'CURR'.
+      ps_fcat-cfieldname = 'WAERS'.
+    WHEN 'PERC'.
+      ps_fcat-datatype = 'DEC'.
+  ENDCASE.
+
+  APPEND ps_fcat TO pt_fcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form register_events
+*&---------------------------------------------------------------------*
+FORM register_events.
+
+  DATA: lt_events TYPE cntl_simple_events,
+        ls_event  TYPE cntl_simple_event.
+
+  " Register DATA_CHANGED event
+  ls_event-eventid    = cl_gui_alv_grid=>mc_evt_modified.
+  ls_event-appl_event = 'X'.
+  APPEND ls_event TO lt_events.
+
+  CALL METHOD go_alv_grid->set_registered_events
+    EXPORTING
+      events = lt_events.
+
+  " Set event handler
+  SET HANDLER lcl_event_handler=>on_data_changed FOR go_alv_grid.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Event Handler Class
+*&---------------------------------------------------------------------*
+CLASS lcl_event_handler DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS: on_data_changed
+      FOR EVENT data_changed OF cl_gui_alv_grid
+      IMPORTING er_data_changed.
+ENDCLASS.
+
+CLASS lcl_event_handler IMPLEMENTATION.
+  METHOD on_data_changed.
+    
+    DATA: ls_mod_cell TYPE lvc_s_modi,
+          ls_credit   TYPE ty_credit,
+          lt_celltab  TYPE lvc_t_styl,
+          ls_celltab  TYPE lvc_s_styl,
+          lv_tabix    TYPE sy-tabix.
+
+    " Loop through all modified cells
+    LOOP AT er_data_changed->mt_mod_cells INTO ls_mod_cell.
+      
+      " Check if MANUAL_EDIT checkbox was changed
+      IF ls_mod_cell-fieldname = 'MANUAL_EDIT'.
+        
+        " Get the row that was changed
+        READ TABLE gt_credit INTO ls_credit INDEX ls_mod_cell-row_id.
+        IF sy-subrc = 0.
+          lv_tabix = sy-tabix.
+          
+          " Update the checkbox value in internal table
+          ls_credit-manual_edit = ls_mod_cell-value.
+          
+          " Build cell style table
+          CLEAR lt_celltab.
+          CLEAR ls_celltab.
+          
+          ls_celltab-fieldname = 'PAYMENT_AMT'.
+          
+          IF ls_credit-manual_edit = 'X'.
+            " Checkbox CHECKED - Make PAYMENT_AMT editable
+            ls_celltab-style = cl_gui_alv_grid=>mc_style_enabled.
+          ELSE.
+            " Checkbox UNCHECKED - Make PAYMENT_AMT read-only
+            ls_celltab-style = cl_gui_alv_grid=>mc_style_disabled.
+          ENDIF.
+          
+          APPEND ls_celltab TO lt_celltab.
+          
+          " Store cell style table in internal table
+          ls_credit-celltab = lt_celltab.
+          
+          " Update the internal table
+          MODIFY gt_credit FROM ls_credit INDEX lv_tabix.
+          
+        ENDIF.
+        
+      ENDIF.
+      
+    ENDLOOP.
+    
+    " Refresh ALV display to show style changes
+    CALL METHOD go_alv_grid->refresh_table_display
+      EXPORTING
+        is_stable = VALUE lvc_s_stbl( row = 'X' col = 'X' ).
+    
+  ENDMETHOD.
+ENDCLASS.
